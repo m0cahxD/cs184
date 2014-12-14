@@ -43,36 +43,56 @@ class Viewport {
 // Structures
 //****************************************************
 
+struct Joint {
+  float length;
+  float theta_x;
+  float theta_y;
+  float theta_z;
+  
+  Vector4f origin;
+  Matrix4f rotation;
+  Matrix4f translation;
+
+  Joint(float length) {
+    this->length = length;
+    this->origin << 0, 0, 0, 1;
+    
+    // Joint lies along the x axis
+    translation << 1, 0, 0, length;
+                   0, 1, 0, 0,
+                   0, 0, 1, 0,
+                   0, 0, 0, 1;
+    
+    rotation.setIdentity();
+    updateRotation(0, 0, 0);
+  }
+  
+  void updateRotation(float theta_x, float theta_y, float theta_z) {
+    this->theta_x = theta_x;
+    this->theta_y = theta_y;
+    this->theta_z = theta_z;
+    
+    Matrix4f rotation_x;
+    Matrix4f rotation_y;
+    Matrix4f rotation_z;
+    rotation_x << 1,             0,             0,
+                  0,             cos(theta_x),  -sin(theta_x),
+                  0,             sin(theta_x),  cos(theta_x);
+    rotation_y << cos(theta_y),  0,             sin(theta_y),
+                  0,             1,             0,
+                  -sin(theta_y), 0,             cos(theta_y);
+    rotation_z << cos(theta_z),  -sin(theta_z), 0,
+                  sin(theta_z),  cos(theta_z),  0,
+                  0,             0,             1;
+    rotation = rotation_z * rotation_y * rotation_x;
+  }
+};
+
 //****************************************************
 // Global Variables
 //****************************************************
 Viewport	viewport;
-
-//****************************************************
-// Simple init function
-//****************************************************
-void initScene(){
-  glLoadIdentity();
-
-  // Set default toggles to flat shading and filled mode
-  glShadeModel(GL_FLAT);
-  glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-
-  glClearColor(0.0, 0.0, 0.0, 0.0);
-
-  glEnable(GL_NORMALIZE);
-  glEnable(GL_LIGHT0);
-	glEnable(GL_LIGHTING);
-	glEnable(GL_DEPTH_TEST);
-
-  GLfloat pl[] = {1.0, 1.0, 1.0, -1.0};
-  GLfloat ka[] = {0.3, 0.0, 1.0};
-  GLfloat kd[] = {0.3, 0.0, 1.0};
-
-  glLightfv(GL_LIGHT0, GL_POSITION, pl);
-  glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, ka);
-  glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, kd);
-}
+vector<Joint> jointVector;
 
 //****************************************************
 // reshape viewport if the window is resized
@@ -154,11 +174,11 @@ void onDirectionalKeyPress(int key, int x, int y) {
 }
 
 //****************************************************
-// the usual stuff, nothing exciting here
+// Simple init function
 //****************************************************
-int main(int argc, char *argv[]) {
-  //This initializes glut
-  glutInit(&argc, argv);
+void initGL(int argc, char *argv[]){
+  // Set up OpenGL
+  initGL(argc, argv);
 
   //This tells glut to use a double-buffered window with red, green, and blue channels 
   glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
@@ -171,17 +191,67 @@ int main(int argc, char *argv[]) {
   glutInitWindowSize(viewport.w, viewport.h);
   glutInitWindowPosition(0,0);
   glutCreateWindow(argv[0]);
+  
+  glLoadIdentity();
 
-  initScene();							// quick function to set up scene
+  // Set default toggles to flat shading and filled mode
+  glShadeModel(GL_FLAT);
+  glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
+  glClearColor(0.0, 0.0, 0.0, 0.0);
+
+  glEnable(GL_NORMALIZE);
+  glEnable(GL_LIGHT0);
+	glEnable(GL_LIGHTING);
+	glEnable(GL_DEPTH_TEST);
+
+  GLfloat pl[] = {1.0, 1.0, 1.0, -1.0};
+  GLfloat ka[] = {0.3, 0.0, 1.0};
+  GLfloat kd[] = {0.3, 0.0, 1.0};
+
+  glLightfv(GL_LIGHT0, GL_POSITION, pl);
+  glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, ka);
+  glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, kd);
+  
   glutDisplayFunc(myDisplay);				// function to run when its time to draw something
   glutReshapeFunc(myReshape);				// function to run when the window gets resized
 
   // Add keyboard bindings
   glutKeyboardFunc(onKeyPress);
   glutSpecialFunc(onDirectionalKeyPress);
+}
 
-  glutMainLoop();							// infinite loop that will keep drawing and resizing
+//****************************************************
+// the usual stuff, nothing exciting here
+//****************************************************
+int main(int argc, char *argv[]) {
+  float step = 0.05;
+  Vector4f goal(2, 2, 2, 1);
+  
+  // Lower -> higher index corresponds to base -> end of the arm
+  Joint j1(2.0);
+  Joint j2(2.0);
+  Joint j3(1.0);
+  Joint j4(1.0);
+  
+  jointVector.push_back(j1);
+  jointVector.push_back(j2);
+  jointVector.push_back(j3);
+  jointVector.push_back(j4);
+  
+  // Run update once
+  for(float t = 0; t < 1; t += step) {
+    goal = nextGoal(t);
+    updateSystem(goal);
+  }
+  
+  for(float t = 0; t < 3; t += step) {
+    goal = nextGoal(t);
+    updateSystem(goal);
+    // Todo: draw the updated system
+  }
+
+  //glutMainLoop();							// infinite loop that will keep drawing and resizing
   // and whatever else
 
   return 0;
