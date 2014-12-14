@@ -91,6 +91,32 @@ void myReshape(int w, int h) {
 // Helper functions
 //****************************************************
 
+bool update(Vector4f g){
+  Vector4f g_sys = g - system.basepoint;
+  // if (I can't reach the goal){
+  //   g = new goal that can be reached
+  // }
+  Vector4f dp = g - system.endpoint;
+  if (dp.norm() > eps){
+    J = system.getJ();
+    svd(J);
+    dtheta = svd.solve(dp);
+
+    system.updateAngles(dtheta);
+    system.updateEndpoint;
+    return false;
+  }
+  return true;
+}
+
+//takes in a float and calculates the next goal point on our path
+Vector4f nextGoal(float t){
+  Vector4f u = {sqrt(2), sqrt(2), 0, 0};
+  Vector4f uxn = {0, 0, -1, 0};
+
+  return 4*cos(t)*u + 4*sin(t)*uxn + (4, 4, 0, 1);
+}
+
 //****************************************************
 // function that does the actual drawing of stuff
 //***************************************************
