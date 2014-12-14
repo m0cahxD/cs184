@@ -7,7 +7,7 @@
 #include <stdio.h>
 #include <Eigen/Dense>
 
-#include <glut-3.7.6-bin/GL/glut.h>
+#include <GL/glut.h>
 #include <time.h>
 #include <math.h>
 
