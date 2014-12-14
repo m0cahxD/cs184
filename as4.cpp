@@ -7,9 +7,23 @@
 #include <stdio.h>
 #include <Eigen/Dense>
 
+#ifdef _WIN32
+#include <windows.h>
+#else
+#include <sys/time.h>
+#endif
+
+#ifdef OSX
+#include <GLUT/glut.h>
+#include <OpenGL/glu.h>
+#else
 #include <GL/glut.h>
+#include <GL/glu.h>
+#endif
+
 #include <time.h>
 #include <math.h>
+
 
 using namespace std;
 using namespace Eigen;
@@ -98,8 +112,6 @@ void myDisplay() {
 //***************************************************
 
 void onKeyPress(unsigned char key, int x, int y) {
-  switch(key) {
-  }
 }
 
 void onDirectionalKeyPress(int key, int x, int y) {
