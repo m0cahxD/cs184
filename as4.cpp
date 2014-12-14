@@ -5,6 +5,7 @@
 #include <cmath>
 #include <string>
 #include <stdio.h>
+#include <Eigen/Core>
 #include <Eigen/Dense>
 
 #ifdef _WIN32
@@ -131,10 +132,10 @@ bool update(Vector4f g){
 
 //takes in a float and calculates the next goal point on our path
 Vector4f nextGoal(float t){
-  Vector4f u = {sqrt(2), sqrt(2), 0, 0};
-  Vector4f uxn = {0, 0, -1, 0};
-
-  return 4*cos(t)*u + 4*sin(t)*uxn + (4, 4, 0, 1);
+  Vector4f u(sqrt(2), sqrt(2), 0, 0);
+  Vector4f uxn(0, 0, -1, 0);
+  Vector4f c(4, 4, 0, 1);
+  return 4*cos(t)*u + 4*sin(t)*uxn + c;
 }
 
 //****************************************************
@@ -242,12 +243,18 @@ int main(int argc, char *argv[]) {
   // Run update once
   for(float t = 0; t < 1; t += step) {
     goal = nextGoal(t);
-    updateSystem(goal);
+    bool finished = false;
+    while(!finished) {
+      finished = update(goal);
+    }
   }
   
   for(float t = 0; t < 3; t += step) {
     goal = nextGoal(t);
-    updateSystem(goal);
+    bool finished = false;
+    while(!finished) {
+      finished = update(goal);
+    }
     // Todo: draw the updated system
   }
 
