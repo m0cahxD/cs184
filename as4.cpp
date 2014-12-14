@@ -40,17 +40,6 @@ class Viewport {
     int w, h; // width and height
 };
 
-class System{
-public:
-  System(vector<Joint>);
-};
-
-System::System(vector<Joint> joints){
-  vector<Joint> jointVector = joints;
-  Vector4f basepoint = jointVector.front().origin;
-  Vector4f endpoint = jointVector.back().
-} 
-
 //****************************************************
 // Structures
 //****************************************************
@@ -100,11 +89,49 @@ struct Joint {
   }
 };
 
+struct Arm {
+  float length;
+  vector<Joint> joints;
+  Vector4f basepoint;
+  Vector4f endpoint;
+  
+  Arm() {
+    this->length = 0;
+  }
+  
+  // Specify the joints to use
+  void updateJoints(vector<Joint> joints) {
+    this->joints = joints;
+    this->length = findLength();
+    this->basepoint = joints.front().origin;
+    // Forward kinematics
+    updateEndpoint();
+  }
+  
+  // Update the current endpoint
+  void updateEndpoint() {
+  }
+  
+  // Find the total length of the system
+  float findLength() {
+	  return 0;
+  }
+  
+  /* Get the Jacobian matrix for the system
+  MatrixXf getJ() {
+  }
+  */
+  
+  // Update angles for each joint in the system
+  void updateAngles(float theta1[], float theta2[], float theta3[], float theta4[]) {
+  }
+};
+
 //****************************************************
 // Global Variables
 //****************************************************
-Viewport	viewport;
-vector<Joint> jointVector;
+Viewport viewport;
+Arm arm;
 
 //****************************************************
 // reshape viewport if the window is resized
@@ -123,8 +150,10 @@ void myReshape(int w, int h) {
 // Helper functions
 //****************************************************
 
-bool update(Vector4f g){
+bool update(Vector4f& goal) {
+/*
   Vector4f g_sys = g - system.basepoint;
+  
   // if (I can't reach the goal){
   //   g = new goal that can be reached
   // }
@@ -138,10 +167,11 @@ bool update(Vector4f g){
     system.updateEndpoint;
     return false;
   }
+*/
   return true;
 }
 
-//takes in a float and calculates the next goal point on our path
+// takes in a float and calculates the next goal point on our path
 Vector4f nextGoal(float t){
   Vector4f u(sqrt(2), sqrt(2), 0, 0);
   Vector4f uxn(0, 0, -1, 0);
@@ -195,7 +225,7 @@ void initGL(int argc, char *argv[]){
   //This tells glut to use a double-buffered window with red, green, and blue channels 
   glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
 
-  // Initalize theviewport size
+  // Initialize the viewport size
   viewport.w = 700;
   viewport.h = 700;
   
@@ -246,10 +276,15 @@ int main(int argc, char *argv[]) {
   Joint j3(1.0);
   Joint j4(1.0);
   
-  jointVector.push_back(j1);
-  jointVector.push_back(j2);
-  jointVector.push_back(j3);
-  jointVector.push_back(j4);
+  vector<Joint> joints;
+  
+  joints.push_back(j1);
+  joints.push_back(j2);
+  joints.push_back(j3);
+  joints.push_back(j4);
+  
+  // Add joints to the system
+  arm.updateJoints(joints);
   
   // Run update once
   for(float t = 0; t < 1; t += step) {
