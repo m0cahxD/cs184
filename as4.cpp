@@ -40,6 +40,17 @@ class Viewport {
     int w, h; // width and height
 };
 
+class System{
+public:
+  System(vector<Joint>);
+};
+
+System::System(vector<Joint> joints){
+  vector<Joint> jointVector = joints;
+  Vector4f basepoint = jointVector.front().origin;
+  Vector4f endpoint = jointVector.back().
+} 
+
 //****************************************************
 // Structures
 //****************************************************
