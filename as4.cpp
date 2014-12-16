@@ -128,10 +128,34 @@ struct Arm {
     }
     endpoint = transf * origin;
   }
+
+  Vector4f findEndpoint(int index, float theta) {
+    Joint oldJoint = joints[index];
+    Joint newJoint = Joint(oldJoint.length);
+    newJoint.setRotation(oldJoint.theta_x, oldJoint.theta_y, oldJoint.theta_z);
+    newJoint.updateRotation(theta, theta, theta);
+
+    Matrix4f transf;
+    transf << 1, 0, 0, 0,
+              0, 1, 0, 0,
+              0, 0, 1, 0,
+              0, 0, 0, 1;
+    Vector4f origin(0, 0, 0, 1);
+
+    for (int count = joints.size()-1; count >= 0; count--){
+      transf = joints[count].translation * transf;
+      if (count == index){
+        transf = newJoint.rotation * transf;
+      } else {
+        transf = joints[count].rotation * transf;
+      }
+    }
+    return transf * origin;
+  }
   
   // Find the total length of the system
   float findLength() {
-    float length;
+    float length = 0;
     for(vector<Joint>::size_type i = 0; i < joints.size(); i++) {
       length += joints[i].length;
     }
