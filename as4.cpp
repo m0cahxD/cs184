@@ -119,19 +119,14 @@ struct Arm {
               0, 1, 0, 0,
               0, 0, 1, 0,
               0, 0, 0, 1;
-    Vector4f tempPoint(0, 0, 0, 1);
-    Vector4f originPoint(0, 0, 0, 1);
+    Vector4f origin(0, 0, 0, 1);
 
-    //loops through vector of joints 
-    for (vector<Joint>::size_type i = 0; i < joints.size(); i++) {
-      //iteratively updates the currentTransformation matrix (transf)
+    // Compose transformations for each Joint from end to base
+    for (vector<Joint>::size_type i = joints.size() - 1; i >= 0; i--) {
       transf = joints[i].translation * transf;
       transf = joints[i].rotation * transf;
-
-      //iteratively adds the resulting vectors to get a new endpoint
-      tempPoint += transf * originPoint;
     }
-    endpoint = tempPoint;
+    endpoint = transf * origin;
   }
   
   // Find the total length of the system
