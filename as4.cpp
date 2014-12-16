@@ -65,10 +65,10 @@ struct Joint {
                    0, 0, 0, 1;
     
     rotation.setIdentity();
-    updateRotation(0, 0, 0);
+    setRotation(0, 0, 0);
   }
   
-  void updateRotation(float theta_x, float theta_y, float theta_z) {
+  void setRotation(float theta_x, float theta_y, float theta_z) {
     this->theta_x = theta_x;
     this->theta_y = theta_y;
     this->theta_z = theta_z;
@@ -86,6 +86,10 @@ struct Joint {
                   sin(theta_z),  cos(theta_z),  0,
                   0,             0,             1;
     rotation = rotation_z * rotation_y * rotation_x;
+  }
+  
+  void updateRotation(float dtheta_x, float dtheta_y, float dtheta_z) {
+    setRotation(theta_x + dtheta_x, theta_y + dtheta_y, theta_z + dtheta_z);
   }
 };
 
@@ -110,11 +114,16 @@ struct Arm {
   
   // Update the current endpoint
   void updateEndpoint() {
+    
   }
   
   // Find the total length of the system
   float findLength() {
-	  return 0;
+    float length;
+    for(vector<Joint>::size_type i = 0; i < joints.size(); i++) {
+      length += joints[i].length;
+    }
+    return length;
   }
   
   /* Get the Jacobian matrix for the system
@@ -123,7 +132,11 @@ struct Arm {
   */
   
   // Update angles for each joint in the system
-  void updateAngles(float theta1[], float theta2[], float theta3[], float theta4[]) {
+  void updateAngles(float dtheta1[], float dtheta2[], float dtheta3[], float dtheta4[]) {
+    joints[0].updateRotation(dtheta1[0], dtheta1[1], dtheta1[2]);
+    joints[1].updateRotation(dtheta2[0], dtheta2[1], dtheta2[2]);
+    joints[2].updateRotation(dtheta3[0], dtheta3[1], dtheta3[2]);
+    joints[3].updateRotation(dtheta4[0], dtheta4[1], dtheta4[2]);
   }
 };
 
