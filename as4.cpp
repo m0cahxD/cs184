@@ -119,13 +119,11 @@ struct Arm {
               0, 1, 0, 0,
               0, 0, 1, 0,
               0, 0, 0, 1;
-    Vector4f tempPoint;
-    tempPoint = {0, 0, 0, 1};
-    Vector4f originPoint;
-    originPoint = {0, 0, 0, 1};
+    Vector4f tempPoint(0, 0, 0, 1);
+    Vector4f originPoint(0, 0, 0, 1);
 
     //loops through vector of joints 
-    for (int i = 0; i < joints.size(); i++){
+    for (vector<Joint>::size_type i = 0; i < joints.size(); i++) {
       //iteratively updates the currentTransformation matrix (transf)
       transf = joints[i].translation * transf;
       transf = joints[i].rotation * transf;
