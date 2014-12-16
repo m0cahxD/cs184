@@ -111,10 +111,29 @@ struct Arm {
     // Forward kinematics
     updateEndpoint();
   }
-  
+
   // Update the current endpoint
   void updateEndpoint() {
-    
+    Matrix4f transf;
+    transf << 1, 0, 0, 0,
+              0, 1, 0, 0,
+              0, 0, 1, 0,
+              0, 0, 0, 1;
+    Vector4f tempPoint;
+    tempPoint = {0, 0, 0, 1};
+    Vector4f originPoint;
+    originPoint = {0, 0, 0, 1};
+
+    //loops through vector of joints 
+    for (int i = 0; i < joints.size(); i++){
+      //iteratively updates the currentTransformation matrix (transf)
+      transf = joints[i].translation * transf;
+      transf = joints[i].rotation * transf;
+
+      //iteratively adds the resulting vectors to get a new endpoint
+      tempPoint += transf * originPoint;
+    }
+    endpoint = tempPoint;
   }
   
   // Find the total length of the system
@@ -197,15 +216,15 @@ Vector4f nextGoal(float t){
 //***************************************************
 void myDisplay() {
 
-  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);				// clear the color buffer
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);       // clear the color buffer
 
-  glMatrixMode(GL_MODELVIEW);			        // indicate we are specifying camera transformations
-  //glLoadIdentity();				        // make sure transformation is "zero'd"
+  glMatrixMode(GL_MODELVIEW);             // indicate we are specifying camera transformations
+  //glLoadIdentity();               // make sure transformation is "zero'd"
 
   glColor3f(1.0f, 1.0f, 1.0f);
 
   glFlush();
-  glutSwapBuffers();					// swap buffers (we earlier set double buffer)
+  glutSwapBuffers();          // swap buffers (we earlier set double buffer)
 }
 
 //****************************************************
@@ -257,8 +276,8 @@ void initGL(int argc, char *argv[]){
 
   glEnable(GL_NORMALIZE);
   glEnable(GL_LIGHT0);
-	glEnable(GL_LIGHTING);
-	glEnable(GL_DEPTH_TEST);
+  glEnable(GL_LIGHTING);
+  glEnable(GL_DEPTH_TEST);
 
   GLfloat pl[] = {1.0, 1.0, 1.0, -1.0};
   GLfloat ka[] = {0.3, 0.0, 1.0};
@@ -268,8 +287,8 @@ void initGL(int argc, char *argv[]){
   glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, ka);
   glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, kd);
   
-  glutDisplayFunc(myDisplay);				// function to run when its time to draw something
-  glutReshapeFunc(myReshape);				// function to run when the window gets resized
+  glutDisplayFunc(myDisplay);       // function to run when its time to draw something
+  glutReshapeFunc(myReshape);       // function to run when the window gets resized
 
   // Add keyboard bindings
   glutKeyboardFunc(onKeyPress);
@@ -317,7 +336,7 @@ int main(int argc, char *argv[]) {
     // Todo: draw the updated system
   }
 
-  //glutMainLoop();							// infinite loop that will keep drawing and resizing
+  //glutMainLoop();             // infinite loop that will keep drawing and resizing
   // and whatever else
 
   return 0;
