@@ -52,6 +52,7 @@ class Joint {
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   Vector4f origin;
+  Vector4f end;
   Matrix4f rotation;
   Matrix4f translation;
   float length;
@@ -64,13 +65,13 @@ public:
 	this->origin << 0, 0, 0, 1;
 	
     // Joint lies along the x axis
-	translation << 1, 0, 0, length,
-				0, 1, 0, 0,
-				0, 0, 1, 0,
-				0, 0, 0, 1;
-    
-    rotation.setIdentity();
-    setRotation(0, 0, 0);
+	translation << 1, 0, 0, 0,
+                 0, 1, 0, 0,
+                 0, 0, 1, length,
+                 0, 0, 0, 1;
+  this->end = translation * origin;
+  rotation.setIdentity();
+  setRotation(0, 0, 0);
   }
 
   Joint(float length) {
@@ -78,11 +79,11 @@ public:
     this->origin << 0, 0, 0, 1;
 
     // Joint lies along the x axis
-    translation << 1, 0, 0, length,
-                   0, 1, 0, 0,
-                   0, 0, 1, 0,
-                   0, 0, 0, 1;
-    
+	translation << 1, 0, 0, 0,
+                 0, 1, 0, 0,
+                 0, 0, 1, length,
+                 0, 0, 0, 1;
+    this->end = translation * origin;
     rotation.setIdentity();
     setRotation(0, 0, 0);
   }
@@ -230,7 +231,7 @@ void myReshape(int w, int h) {
   glViewport (0,0,viewport.w,viewport.h);
   glMatrixMode(GL_PROJECTION);
   glLoadIdentity();
-  glOrtho(-4, 4, -4, 4, -4, 4);
+  glOrtho(-10, 10, -10, 10, -10, 10);
 }
 
 //****************************************************
@@ -241,14 +242,18 @@ bool update(Vector4f& goal) {
   Vector4f goal_t = goal;
   Vector4f g_sys = goal - arm.basepoint;
   if(g_sys.norm() > arm.length) {
+    printf("Needs adjustment...\n");
     Vector3f norm_goal(g_sys(0), g_sys(1), g_sys(2));
-    norm_goal.normalize();
-    norm_goal = norm_goal * arm.length * 0.95;
+    cout << "norm_goal: " << norm_goal << " --- norm(): " << norm_goal.normalized() << endl;
+    norm_goal = norm_goal.normalized() * arm.length * 0.95;
+    if(norm_goal.norm() > arm.length) {
+      printf("Adjusted goal is reachable\n");
+    }
     goal_t << norm_goal(0), norm_goal(1), norm_goal(2), 1;
   }
   Vector4f tmp = goal_t - arm.endpoint;
   Vector3f dp(tmp(0), tmp(1), tmp(2));
-  if (dp.norm() > 0.01) {
+  if (dp.norm() > 0.1) {
     MatrixXf J = arm.getJ();
     MatrixXf J_inverse = J.transpose() * (J * J.transpose()).inverse();
     dp.resize(3);
@@ -281,9 +286,24 @@ void myDisplay() {
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);       // clear the color buffer
 
   glMatrixMode(GL_MODELVIEW);             // indicate we are specifying camera transformations
-  //glLoadIdentity();               // make sure transformation is "zero'd"
+  glLoadIdentity();               // make sure transformation is "zero'd"
 
   glColor3f(1.0f, 1.0f, 1.0f);
+  
+  // Draw the path
+  
+  // Test cone
+  glutSolidCone(3.0, 5.0, 50, 50);
+  /*
+  for(int i = 0; i < arm.joints.size(); i++) {
+    Joint j = arm.joints[i];
+    glRotatef(j.theta_x, 1.0, 0.0, 0.0);
+    glRotatef(j.theta_y, 0.0, 1.0, 0.0);
+    glRotatef(j.theta_z, 0.0, 0.0, 1.0);
+    glutSolidCone(1.0, 1.5, 50, 50);
+    glTranslatef(0.0, 0.0, j.length);
+    
+  }*/ 
 
   glFlush();
   glutSwapBuffers();          // swap buffers (we earlier set double buffer)
@@ -386,14 +406,15 @@ int main(int argc, char *argv[]) {
   
   printf("Arm initialized\n");
 
-  // Run update once
+  /* Run update once
   for(float t = 0; t < 1; t += step) {
     goal = nextGoal(t);
     bool finished = false;
     while(!finished) {
       finished = update(goal);
     }
-  }
+  }*/
+  myDisplay();
   
   for(float t = 0; t < 3; t += step) {
     goal = nextGoal(t);
@@ -401,13 +422,13 @@ int main(int argc, char *argv[]) {
     while(!finished) {
       finished = update(goal);
     }
-    
+    myDisplay();
     // Todo: draw the updated system
   }
 
   printf("Finished loops\n");
 
-  //glutMainLoop();             // infinite loop that will keep drawing and resizing
+  glutMainLoop();             // infinite loop that will keep drawing and resizing
   // and whatever else
 
   return 0;
