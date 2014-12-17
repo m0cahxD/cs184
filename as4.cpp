@@ -33,6 +33,8 @@ using namespace Eigen;
 
 #define deltaTheta 0.05
 
+void idleLoop();
+
 //****************************************************
 // Some Classes
 //****************************************************
@@ -65,9 +67,9 @@ public:
 	this->origin << 0, 0, 0, 1;
 	
     // Joint lies along the x axis
-	translation << 1, 0, 0, 0,
+	translation << 1, 0, 0, length,
                  0, 1, 0, 0,
-                 0, 0, 1, length,
+                 0, 0, 1, 0,
                  0, 0, 0, 1;
   this->end = translation * origin;
   rotation.setIdentity();
@@ -79,9 +81,9 @@ public:
     this->origin << 0, 0, 0, 1;
 
     // Joint lies along the x axis
-	translation << 1, 0, 0, 0,
+	translation << 1, 0, 0, length,
                  0, 1, 0, 0,
-                 0, 0, 1, length,
+                 0, 0, 1, 0,
                  0, 0, 0, 1;
     this->end = translation * origin;
     rotation.setIdentity();
@@ -220,6 +222,7 @@ public:
 //****************************************************
 Viewport viewport;
 Arm arm;
+float idle_t = 0.0;
 
 //****************************************************
 // reshape viewport if the window is resized
@@ -249,17 +252,17 @@ void myDisplay() {
   // Draw the path
   
   // Test cone
-  glutSolidCone(3.0, 5.0, 50, 50);
-  /*
+  //glutSolidCone(3.0, 5.0, 50, 50);
+  
   for(int i = 0; i < arm.joints.size(); i++) {
     Joint j = arm.joints[i];
     glRotatef(j.theta_x, 1.0, 0.0, 0.0);
     glRotatef(j.theta_y, 0.0, 1.0, 0.0);
     glRotatef(j.theta_z, 0.0, 0.0, 1.0);
-    glutSolidCone(1.0, 1.5, 50, 50);
+    glutSolidCone(0.3, j.length, 50, 50);
     glTranslatef(0.0, 0.0, j.length);
     
-  }*/ 
+  } 
 
   glFlush();
   glutSwapBuffers();          // swap buffers (we earlier set double buffer)
@@ -270,17 +273,16 @@ void myDisplay() {
 //****************************************************
 
 bool update(Vector4f& goal) {
-  myDisplay();
   Vector4f goal_t = goal;
   Vector4f g_sys = goal - arm.basepoint;
   if(g_sys.norm() > arm.length) {
     Vector3f norm_goal(g_sys(0), g_sys(1), g_sys(2));
-    norm_goal = norm_goal.normalized() * arm.length * 0.95;
+    norm_goal = norm_goal.normalized() * arm.length * 0.99;
     goal_t << norm_goal(0), norm_goal(1), norm_goal(2), 1;
   }
   Vector4f tmp = goal_t - arm.endpoint;
   Vector3f dp(tmp(0), tmp(1), tmp(2));
-  if (dp.norm() > 0.5) {
+  if (dp.norm() > 0.1) {
     MatrixXf J = arm.getJ();
     MatrixXf J_inverse = J.transpose() * (J * J.transpose()).inverse();
     VectorXf dtheta = J_inverse * dp;
@@ -366,6 +368,13 @@ void initGL(int argc, char *argv[]) {
   // Add keyboard bindings
   glutKeyboardFunc(onKeyPress);
   glutSpecialFunc(onDirectionalKeyPress);
+  glutIdleFunc(idleLoop);
+}
+
+void idleLoop() {
+  update(nextGoal(idle_t));
+  myDisplay();
+  idle_t += 0.05;
 }
 
 //****************************************************
@@ -373,7 +382,7 @@ void initGL(int argc, char *argv[]) {
 //****************************************************
 int main(int argc, char *argv[]) {
   float step = 0.05;
-  Vector4f goal(2, 2, 2, 1);
+  Vector4f goal(2, 2, 1, 1);
   
   initGL(argc, argv);
 
@@ -408,8 +417,9 @@ int main(int argc, char *argv[]) {
       finished = update(goal);
     }
   }*/
-  myDisplay();
   
+  
+  /*
   for(float t = 0; t < 3; t += step) {
     goal = nextGoal(t);
     bool finished = false;
@@ -418,8 +428,8 @@ int main(int argc, char *argv[]) {
     }
     myDisplay();
     // Todo: draw the updated system
-  }
-
+  }*/
+  
   printf("Finished loops\n");
 
   glutMainLoop();             // infinite loop that will keep drawing and resizing
