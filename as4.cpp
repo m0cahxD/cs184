@@ -31,9 +31,11 @@
 using namespace std;
 using namespace Eigen;
 
-#define deltaTheta 0.05
+#define deltaTheta 0.01
+#define PI 3.141592653
 
 void idleLoop();
+Vector4f nextGoal(float t);
 
 //****************************************************
 // Some Classes
@@ -149,9 +151,10 @@ public:
     Vector4f origin(0, 0, 0, 1);
 
     // Compose transformations for each Joint from end to base
-    for (int i = joints.size() - 1; i >= 0; i--) {
-      transf = joints[i].translation * transf;
-      transf = joints[i].rotation * transf;
+    for (int i = 0; i < joints.size(); i++) {
+      transf = transf * joints[i].rotation;
+      transf = transf * joints[i].translation;
+      joints[i].end = transf * origin;
     }
     endpoint = transf * origin;
   }
@@ -223,6 +226,7 @@ public:
 Viewport viewport;
 Arm arm;
 float idle_t = 0.0;
+Vector4f path_goal;
 
 //****************************************************
 // reshape viewport if the window is resized
@@ -234,7 +238,7 @@ void myReshape(int w, int h) {
   glViewport (0,0,viewport.w,viewport.h);
   glMatrixMode(GL_PROJECTION);
   glLoadIdentity();
-  glOrtho(-10, 10, -10, 10, -10, 10);
+  glOrtho(-5, 5, -5, 5, -5, 5);
 }
 
 //****************************************************
@@ -247,23 +251,37 @@ void myDisplay() {
   glMatrixMode(GL_MODELVIEW);             // indicate we are specifying camera transformations
   glLoadIdentity();               // make sure transformation is "zero'd"
 
-  glColor3f(1.0f, 1.0f, 1.0f);
+  glColor3f(1.0f, 0.0f, 0.0f);
   
   // Draw the path
+  for(float t = 0; t < 1; t+=0.01) {
+  path_goal = nextGoal(t);
+  glBegin(GL_TRIANGLES);
+  glColor3f(1.0f, 0.0f, 0.0f);
+  glVertex3f(path_goal(0), path_goal(1), path_goal(2));
+  glVertex3f(path_goal(0)+0.3, path_goal(1)-0.3, path_goal(2));
+  glVertex3f(path_goal(0)+0.3, path_goal(1), path_goal(2));
+  glEnd();
+  }
   
-  // Test cone
-  //glutSolidCone(3.0, 5.0, 50, 50);
+  // Debug: draw the endpoints of all joints
+  for(int i = 0; i < arm.joints.size(); i++) {
+    Joint j = arm.joints[i];
+    
+  }
   
   for(int i = 0; i < arm.joints.size(); i++) {
     Joint j = arm.joints[i];
-    glRotatef(j.theta_x, 1.0, 0.0, 0.0);
-    glRotatef(j.theta_y, 0.0, 1.0, 0.0);
     glRotatef(j.theta_z, 0.0, 0.0, 1.0);
+    glRotatef(j.theta_y, 0.0, 1.0, 0.0);
+    glRotatef(j.theta_x, 1.0, 0.0, 0.0);
+    glPushMatrix();
+    glRotatef(90, 0.0, 1.0, 0.0);
     glutSolidCone(0.3, j.length, 50, 50);
-    glTranslatef(0.0, 0.0, j.length);
+    glPopMatrix();
+    glTranslatef(j.length, 0.0, 0.0);
     
-  } 
-
+  }
   glFlush();
   glutSwapBuffers();          // swap buffers (we earlier set double buffer)
 }
@@ -282,7 +300,7 @@ bool update(Vector4f& goal) {
   }
   Vector4f tmp = goal_t - arm.endpoint;
   Vector3f dp(tmp(0), tmp(1), tmp(2));
-  if (dp.norm() > 0.1) {
+  if (dp.norm() > 0.01) {
     MatrixXf J = arm.getJ();
     MatrixXf J_inverse = J.transpose() * (J * J.transpose()).inverse();
     VectorXf dtheta = J_inverse * dp;
@@ -298,11 +316,11 @@ bool update(Vector4f& goal) {
 }
 
 // takes in a float and calculates the next goal point on our path
-Vector4f nextGoal(float t){
+Vector4f nextGoal(float t) {
   Vector4f u(sqrt(2), sqrt(2), 0, 0);
   Vector4f uxn(0, 0, -1, 0);
-  Vector4f c(4, 4, 0, 1);
-  return 4*cos(t)*u + 4*sin(t)*uxn + c;
+  Vector4f c(4*sqrt(2), 4*sqrt(2), 0, 1);
+  return 4*cos(2*PI*t)*u + 4*sin(2*PI*t)*uxn + c;
 }
 
 //****************************************************
@@ -355,8 +373,8 @@ void initGL(int argc, char *argv[]) {
   glEnable(GL_DEPTH_TEST);
 
   GLfloat pl[] = {1.0, 1.0, 1.0, -1.0};
-  GLfloat ka[] = {0.3, 0.0, 1.0};
-  GLfloat kd[] = {0.3, 0.0, 1.0};
+  GLfloat ka[] = {1.0, 1.0, 1.0};
+  GLfloat kd[] = {1.0, 1.0, 1.0};
 
   glLightfv(GL_LIGHT0, GL_POSITION, pl);
   glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, ka);
@@ -372,9 +390,11 @@ void initGL(int argc, char *argv[]) {
 }
 
 void idleLoop() {
-  update(nextGoal(idle_t));
+  path_goal = nextGoal(idle_t);
+  
+  update(path_goal);
   myDisplay();
-  idle_t += 0.05;
+  idle_t += 0.01;
 }
 
 //****************************************************
