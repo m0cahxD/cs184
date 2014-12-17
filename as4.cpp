@@ -9,6 +9,7 @@
 #include <Eigen/Dense>
 #include <Eigen/StdVector>
 #include <Eigen/LU>
+#include <Eigen/SVD>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -97,6 +98,10 @@ public:
     this->theta_y = theta_y;
     this->theta_z = theta_z;
     
+    theta_x = theta_x * PI / 180.0;
+    theta_y = theta_y * PI / 180.0;
+    theta_z = theta_z * PI / 180.0;
+    
     Matrix4f rotation_x;
     Matrix4f rotation_y;
     Matrix4f rotation_z;
@@ -112,7 +117,7 @@ public:
                   sin(theta_z),  cos(theta_z),  0,             0,
                   0,             0,             1,             0,
 				  0,             0,             0,             1;
-    rotation = rotation_z * rotation_y * rotation_x;
+    rotation = rotation_x * rotation_y * rotation_z;
   }
   
   void updateRotation(float dtheta_x, float dtheta_y, float dtheta_z) {
@@ -172,13 +177,13 @@ public:
               0, 0, 0, 1;
     Vector4f origin(0, 0, 0, 1);
 
-    for (int count = joints.size()-1; count >= 0; count--){
-      transf = joints[count].translation * transf;
-      if (count == index){
-        transf = newJoint.rotation * transf;
+    for (int i = 0; i < joints.size(); i++) {
+      if(i == index) {
+        transf = transf * newJoint.rotation;
       } else {
-        transf = joints[count].rotation * transf;
+        transf = transf * joints[i].rotation;
       }
+      transf = transf * joints[i].translation;
     }
     return transf * origin;
   }
@@ -254,14 +259,21 @@ void drawPoint(Vector4f& point) {
 }
 
 void myDisplay() {
-
+  printf("myDisplay call ------\n");
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);       // clear the color buffer
 
   glMatrixMode(GL_MODELVIEW);             // indicate we are specifying camera transformations
   glLoadIdentity();               // make sure transformation is "zero'd"
 
   glColor3f(1.0f, 0.0f, 0.0f);
-  
+  /*
+  arm.joints[0].setRotation(0, 0, 0);
+  arm.joints[1].setRotation(0, 0, 90);
+  arm.joints[2].setRotation(0, 0, -90);
+  arm.joints[3].setRotation(0, 0, -90);
+  arm.updateEndpoint();
+  cout << "endpoint " << arm.endpoint << endl;
+  */
   /* Draw the path
   for(float t = 0; t < 1; t+=0.01) {
   path_goal = nextGoal(t);
@@ -292,6 +304,7 @@ void myDisplay() {
     glTranslatef(j.length, 0.0, 0.0);
     
   }
+  cout << "endpoint " << arm.endpoint << endl;
   glFlush();
   glutSwapBuffers();          // swap buffers (we earlier set double buffer)
 }
@@ -305,23 +318,27 @@ bool update(Vector4f& goal) {
   Vector4f g_sys = goal - arm.basepoint;
   Vector3f g_sys_tmp(g_sys(0), g_sys(1), g_sys(2));
   if(g_sys_tmp.norm() > arm.length) {
-    printf("Out of reach\n");
+    //printf("Out of reach\n");
     Vector3f norm_goal(g_sys(0), g_sys(1), g_sys(2));
-    norm_goal = norm_goal.normalized() * arm.length * 0.89;
+    norm_goal = norm_goal.normalized() * arm.length * 0.9;
     goal_t << norm_goal(0), norm_goal(1), norm_goal(2), 1;
   }
   Vector4f tmp = goal_t - arm.endpoint;
   Vector3f dp(tmp(0), tmp(1), tmp(2));
+  //cout << "dp: " << dp << endl;
+  //printf("dist to goal: %f\n", dp.norm());
   if (dp.norm() > 0.1) {
     MatrixXf J = arm.getJ();
-    MatrixXf J_inverse = J.transpose() * (J * J.transpose()).inverse();
-    VectorXf dtheta = J_inverse * dp;
+    //MatrixXf J_inverse = J.transpose() * (J * J.transpose()).inverse();
+    //MatrixXf J_inverse = (J.transpose() * J).inverse() * J;
+    VectorXf dtheta = J.jacobiSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(dp);
     float dtheta1[3] = {dtheta[0], dtheta[1], dtheta[2]};
     float dtheta2[3] = {dtheta[3], dtheta[4], dtheta[5]};
     float dtheta3[3] = {dtheta[6], dtheta[7], dtheta[8]};
     float dtheta4[3] = {dtheta[9], dtheta[10], dtheta[11]};
     arm.updateAngles(dtheta1, dtheta2, dtheta3, dtheta4);
     arm.updateEndpoint();
+    //cout << "new endpoint: " << arm.endpoint << endl;
     return false;
   }
   return true;
@@ -398,7 +415,7 @@ void initGL(int argc, char *argv[]) {
   // Add keyboard bindings
   glutKeyboardFunc(onKeyPress);
   glutSpecialFunc(onDirectionalKeyPress);
-  glutIdleFunc(idleLoop);
+  //glutIdleFunc(idleLoop);
 }
 
 void idleLoop() {
@@ -417,7 +434,7 @@ void idleLoop() {
 //****************************************************
 int main(int argc, char *argv[]) {
   float step = 0.05;
-  Vector4f goal(2, 2, 1, 1);
+  Vector4f goal(1, 1, 0, 1);
   
   initGL(argc, argv);
 
@@ -452,7 +469,25 @@ int main(int argc, char *argv[]) {
       finished = update(goal);
     }
   }*/
-  
+  bool finished = false;
+  while(!finished) {
+    finished = update(goal);
+  }
+  cout << arm.endpoint << endl;
+  /*
+  Joint j5(2.0);
+  Joint j6(2.0);
+  Joint j7(1.0);
+  Joint j8(1.0);
+  Arm test_arm();
+  vector<Joint, Eigen::aligned_allocator<Joint>> joints;
+  joints.push_back(j5);
+  joints.push_back(j6);
+  joints.push_back(j7);
+  joints.push_back(j8);
+  // Add joints to the system
+  test_arm.updateJoints(joints);
+  */
   
   /*
   for(float t = 0; t < 3; t += step) {
