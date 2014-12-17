@@ -7,6 +7,8 @@
 #include <stdio.h>
 #include <Eigen/Core>
 #include <Eigen/Dense>
+#include <Eigen/StdVector>
+#include <Eigen/LU>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -29,6 +31,8 @@
 using namespace std;
 using namespace Eigen;
 
+#define deltaTheta 0.05
+
 //****************************************************
 // Some Classes
 //****************************************************
@@ -44,22 +48,37 @@ class Viewport {
 // Structures
 //****************************************************
 
-struct Joint {
+class Joint {
+public:
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+  Vector4f origin;
+  Matrix4f rotation;
+  Matrix4f translation;
   float length;
   float theta_x;
   float theta_y;
   float theta_z;
-  
-  Vector4f origin;
-  Matrix4f rotation;
-  Matrix4f translation;
+
+  Joint() {
+	this->length = 1;
+	this->origin << 0, 0, 0, 1;
+	
+    // Joint lies along the x axis
+	translation << 1, 0, 0, length,
+				0, 1, 0, 0,
+				0, 0, 1, 0,
+				0, 0, 0, 1;
+    
+    rotation.setIdentity();
+    setRotation(0, 0, 0);
+  }
 
   Joint(float length) {
     this->length = length;
     this->origin << 0, 0, 0, 1;
-    
+
     // Joint lies along the x axis
-    translation << 1, 0, 0, length;
+    translation << 1, 0, 0, length,
                    0, 1, 0, 0,
                    0, 0, 1, 0,
                    0, 0, 0, 1;
@@ -76,15 +95,18 @@ struct Joint {
     Matrix4f rotation_x;
     Matrix4f rotation_y;
     Matrix4f rotation_z;
-    rotation_x << 1,             0,             0,
-                  0,             cos(theta_x),  -sin(theta_x),
-                  0,             sin(theta_x),  cos(theta_x);
-    rotation_y << cos(theta_y),  0,             sin(theta_y),
-                  0,             1,             0,
-                  -sin(theta_y), 0,             cos(theta_y);
-    rotation_z << cos(theta_z),  -sin(theta_z), 0,
-                  sin(theta_z),  cos(theta_z),  0,
-                  0,             0,             1;
+    rotation_x << 1,             0,             0,             0,
+                  0,             cos(theta_x),  -sin(theta_x), 0,
+                  0,             sin(theta_x),  cos(theta_x),  0,
+				  0,             0,             0,             1;
+    rotation_y << cos(theta_y),  0,             sin(theta_y),  0,
+                  0,             1,             0,             0,
+                  -sin(theta_y), 0,             cos(theta_y),  0,
+				  0,             0,             0,             1;
+    rotation_z << cos(theta_z),  -sin(theta_z), 0,             0,
+                  sin(theta_z),  cos(theta_z),  0,             0,
+                  0,             0,             1,             0,
+				  0,             0,             0,             1;
     rotation = rotation_z * rotation_y * rotation_x;
   }
   
@@ -93,18 +115,20 @@ struct Joint {
   }
 };
 
-struct Arm {
-  float length;
-  vector<Joint> joints;
+class Arm {
+public:
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   Vector4f basepoint;
   Vector4f endpoint;
+  float length;
+  vector<Joint, Eigen::aligned_allocator<Joint>> joints;
   
   Arm() {
     this->length = 0;
   }
   
   // Specify the joints to use
-  void updateJoints(vector<Joint> joints) {
+  void updateJoints(vector<Joint, Eigen::aligned_allocator<Joint>> joints) {
     this->joints = joints;
     this->length = findLength();
     this->basepoint = joints.front().origin;
@@ -122,7 +146,7 @@ struct Arm {
     Vector4f origin(0, 0, 0, 1);
 
     // Compose transformations for each Joint from end to base
-    for (vector<Joint>::size_type i = joints.size() - 1; i >= 0; i--) {
+    for (int i = joints.size() - 1; i >= 0; i--) {
       transf = joints[i].translation * transf;
       transf = joints[i].rotation * transf;
     }
@@ -156,16 +180,30 @@ struct Arm {
   // Find the total length of the system
   float findLength() {
     float length = 0;
-    for(vector<Joint>::size_type i = 0; i < joints.size(); i++) {
+    for(size_t i = 0; i < joints.size(); i++) {
       length += joints[i].length;
     }
     return length;
   }
   
-  /* Get the Jacobian matrix for the system
   MatrixXf getJ() {
+    MatrixXf J(3, 12);
+    for(size_t i = 0; i < joints.size(); i++) {
+      Vector4f end = findEndpoint(i, deltaTheta);
+      Vector4f dp = end - endpoint;
+      dp = dp / deltaTheta;
+      J(0, i * 3) = dp[0];
+      J(0, i * 3 + 1) = dp[0];
+      J(0, i * 3 + 2) = dp[0];
+      J(1, i * 3) = dp[1];
+      J(1, i * 3 + 1) = dp[1];
+      J(1, i * 3 + 2) = dp[1];
+      J(2, i * 3) = dp[2];
+      J(2, i * 3 + 1) = dp[2];
+      J(2, i * 3 + 2) = dp[2];
+    }
+    return J;
   }
-  */
   
   // Update angles for each joint in the system
   void updateAngles(float dtheta1[], float dtheta2[], float dtheta3[], float dtheta4[]) {
@@ -200,23 +238,30 @@ void myReshape(int w, int h) {
 //****************************************************
 
 bool update(Vector4f& goal) {
-/*
-  Vector4f g_sys = g - system.basepoint;
-  
-  // if (I can't reach the goal){
-  //   g = new goal that can be reached
-  // }
-  Vector4f dp = g - system.endpoint;
-  if (dp.norm() > eps){
-    J = system.getJ();
-    svd(J);
-    dtheta = svd.solve(dp);
+  Vector4f goal_t = goal;
+  Vector4f g_sys = goal - arm.basepoint;
+  if(g_sys.norm() > arm.length) {
+    Vector3f norm_goal(g_sys(0), g_sys(1), g_sys(2));
+    norm_goal.normalize();
+    norm_goal = norm_goal * arm.length * 0.95;
+    goal_t << norm_goal(0), norm_goal(1), norm_goal(2), 1;
+  }
+  Vector4f tmp = goal_t - arm.endpoint;
+  Vector3f dp(tmp(0), tmp(1), tmp(2));
+  if (dp.norm() > 0.01) {
+    MatrixXf J = arm.getJ();
+    MatrixXf J_inverse = J.transpose() * (J * J.transpose()).inverse();
+    dp.resize(3);
 
-    system.updateAngles(dtheta);
-    system.updateEndpoint;
+    VectorXf dtheta = J_inverse * dp;
+    float dtheta1[3] = {dtheta[0], dtheta[1], dtheta[2]};
+    float dtheta2[3] = {dtheta[3], dtheta[4], dtheta[5]};
+    float dtheta3[3] = {dtheta[6], dtheta[7], dtheta[8]};
+    float dtheta4[3] = {dtheta[9], dtheta[10], dtheta[11]};
+    arm.updateAngles(dtheta1, dtheta2, dtheta3, dtheta4);
+    arm.updateEndpoint();
     return false;
   }
-*/
   return true;
 }
 
@@ -230,7 +275,7 @@ Vector4f nextGoal(float t){
 
 //****************************************************
 // function that does the actual drawing of stuff
-//***************************************************
+//****************************************************
 void myDisplay() {
 
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);       // clear the color buffer
@@ -267,10 +312,7 @@ void onDirectionalKeyPress(int key, int x, int y) {
 //****************************************************
 // Simple init function
 //****************************************************
-void initGL(int argc, char *argv[]){
-  // Set up OpenGL
-  initGL(argc, argv);
-
+void initGL(int argc, char *argv[]) {
   //This tells glut to use a double-buffered window with red, green, and blue channels 
   glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
 
@@ -286,8 +328,8 @@ void initGL(int argc, char *argv[]){
   glLoadIdentity();
 
   // Set default toggles to flat shading and filled mode
-  glShadeModel(GL_FLAT);
-  glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+  //glShadeModel(GL_FLAT);
+  //glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
   glClearColor(0.0, 0.0, 0.0, 0.0);
 
@@ -319,22 +361,31 @@ int main(int argc, char *argv[]) {
   float step = 0.05;
   Vector4f goal(2, 2, 2, 1);
   
+  initGL(argc, argv);
+
+  printf("initGL finished\n");
+  
   // Lower -> higher index corresponds to base -> end of the arm
   Joint j1(2.0);
   Joint j2(2.0);
   Joint j3(1.0);
   Joint j4(1.0);
+
+  printf("Joints initialized\n");
   
-  vector<Joint> joints;
-  
+  vector<Joint, Eigen::aligned_allocator<Joint>> joints;
   joints.push_back(j1);
   joints.push_back(j2);
   joints.push_back(j3);
   joints.push_back(j4);
+
+  printf("Joints added to vector\n");
   
   // Add joints to the system
   arm.updateJoints(joints);
   
+  printf("Arm initialized\n");
+
   // Run update once
   for(float t = 0; t < 1; t += step) {
     goal = nextGoal(t);
@@ -350,8 +401,11 @@ int main(int argc, char *argv[]) {
     while(!finished) {
       finished = update(goal);
     }
+    
     // Todo: draw the updated system
   }
+
+  printf("Finished loops\n");
 
   //glutMainLoop();             // infinite loop that will keep drawing and resizing
   // and whatever else
