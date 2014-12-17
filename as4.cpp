@@ -32,8 +32,8 @@
 using namespace std;
 using namespace Eigen;
 
-#define deltaTheta 0.5
-#define PI 3.141592653
+#define deltaTheta 10
+#define PI 3.14159265358979323846
 
 void idleLoop();
 Vector4f nextGoal(float t);
@@ -199,10 +199,11 @@ public:
   
   MatrixXf getJ() {
     MatrixXf J(3, 12);
+    float del[4] = {0.2, 0.2, 0.2, 0.2};
     for(size_t i = 0; i < joints.size(); i++) {
-      Vector4f end = findEndpoint(i, deltaTheta);
+      Vector4f end = findEndpoint(i, del[i]);
       Vector4f dp = end - endpoint;
-      dp = dp / deltaTheta;
+      dp = dp / del[i];
       J(0, i * 3) = dp[0];
       J(0, i * 3 + 1) = dp[0];
       J(0, i * 3 + 2) = dp[0];
@@ -212,6 +213,7 @@ public:
       J(2, i * 3) = dp[2];
       J(2, i * 3 + 1) = dp[2];
       J(2, i * 3 + 2) = dp[2];
+	  //cout << "joint: " << i << " --- dp: " << dp << endl;
     }
     return J;
   }
@@ -259,7 +261,7 @@ void drawPoint(Vector4f& point) {
 }
 
 void myDisplay() {
-  printf("myDisplay call ------\n");
+  //printf("myDisplay call ------\n");
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);       // clear the color buffer
 
   glMatrixMode(GL_MODELVIEW);             // indicate we are specifying camera transformations
@@ -292,11 +294,12 @@ void myDisplay() {
   }
   drawPoint(arm.endpoint);
   */
+  arm.updateEndpoint();
   for(int i = 0; i < arm.joints.size(); i++) {
     Joint j = arm.joints[i];
-    glRotatef(j.theta_z, 0.0, 0.0, 1.0);
-    glRotatef(j.theta_y, 0.0, 1.0, 0.0);
     glRotatef(j.theta_x, 1.0, 0.0, 0.0);
+    glRotatef(j.theta_y, 0.0, 1.0, 0.0);
+    glRotatef(j.theta_z, 0.0, 0.0, 1.0);
     glPushMatrix();
     glRotatef(90, 0.0, 1.0, 0.0);
     glutSolidCone(0.3, j.length, 50, 50);
@@ -304,7 +307,7 @@ void myDisplay() {
     glTranslatef(j.length, 0.0, 0.0);
     
   }
-  cout << "endpoint " << arm.endpoint << endl;
+  //cout << "endpoint " << arm.endpoint << endl;
   glFlush();
   glutSwapBuffers();          // swap buffers (we earlier set double buffer)
 }
@@ -320,14 +323,14 @@ bool update(Vector4f& goal) {
   if(g_sys_tmp.norm() > arm.length) {
     //printf("Out of reach\n");
     Vector3f norm_goal(g_sys(0), g_sys(1), g_sys(2));
-    norm_goal = norm_goal.normalized() * arm.length * 0.9;
+    norm_goal = norm_goal.normalized() * arm.length * 0.99;
     goal_t << norm_goal(0), norm_goal(1), norm_goal(2), 1;
   }
   Vector4f tmp = goal_t - arm.endpoint;
   Vector3f dp(tmp(0), tmp(1), tmp(2));
   //cout << "dp: " << dp << endl;
   //printf("dist to goal: %f\n", dp.norm());
-  if (dp.norm() > 0.1) {
+  if (dp.norm() > 0.3) {
     MatrixXf J = arm.getJ();
     //MatrixXf J_inverse = J.transpose() * (J * J.transpose()).inverse();
     //MatrixXf J_inverse = (J.transpose() * J).inverse() * J;
@@ -349,7 +352,7 @@ Vector4f nextGoal(float t) {
   Vector4f u(sqrt(2), sqrt(2), 0, 0);
   Vector4f uxn(0, 0, -1, 0);
   Vector4f c(4*sqrt(2), 4*sqrt(2), 0, 1);
-  return 4*cos(2*PI*t)*u + 4*sin(2*PI*t)*uxn + c;
+  return 4*cos(t)*u + 4*sin(t)*uxn + c;
 }
 
 //****************************************************
@@ -419,14 +422,16 @@ void initGL(int argc, char *argv[]) {
 }
 
 void idleLoop() {
+  //cout << "calling idleLoop()" << endl;
   path_goal = nextGoal(idle_t);
   bool finished = false;
+  int count = 0;
   while(!finished) {
     finished = update(path_goal);
   }
-  printf("New iteration\n");
-  myDisplay();
-  idle_t += 0.05;
+  //printf("New iteration\n");
+	myDisplay();
+  idle_t += 0.0005;
 }
 
 //****************************************************
@@ -434,15 +439,15 @@ void idleLoop() {
 //****************************************************
 int main(int argc, char *argv[]) {
   float step = 0.05;
-  Vector4f goal(1, 1, 0, 1);
+  Vector4f goal(10, 10, 0, 1);
   
   initGL(argc, argv);
 
   printf("initGL finished\n");
   
   // Lower -> higher index corresponds to base -> end of the arm
-  Joint j1(2.0);
-  Joint j2(2.0);
+  Joint j1(1.0);
+  Joint j2(1.0);
   Joint j3(1.0);
   Joint j4(1.0);
 
@@ -469,11 +474,13 @@ int main(int argc, char *argv[]) {
       finished = update(goal);
     }
   }*/
+  
   bool finished = false;
   while(!finished) {
     finished = update(goal);
   }
   cout << arm.endpoint << endl;
+  
   /*
   Joint j5(2.0);
   Joint j6(2.0);
