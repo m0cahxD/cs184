@@ -235,50 +235,6 @@ void myReshape(int w, int h) {
 }
 
 //****************************************************
-// Helper functions
-//****************************************************
-
-bool update(Vector4f& goal) {
-  Vector4f goal_t = goal;
-  Vector4f g_sys = goal - arm.basepoint;
-  if(g_sys.norm() > arm.length) {
-    printf("Needs adjustment...\n");
-    Vector3f norm_goal(g_sys(0), g_sys(1), g_sys(2));
-    cout << "norm_goal: " << norm_goal << " --- norm(): " << norm_goal.normalized() << endl;
-    norm_goal = norm_goal.normalized() * arm.length * 0.95;
-    if(norm_goal.norm() > arm.length) {
-      printf("Adjusted goal is reachable\n");
-    }
-    goal_t << norm_goal(0), norm_goal(1), norm_goal(2), 1;
-  }
-  Vector4f tmp = goal_t - arm.endpoint;
-  Vector3f dp(tmp(0), tmp(1), tmp(2));
-  if (dp.norm() > 0.1) {
-    MatrixXf J = arm.getJ();
-    MatrixXf J_inverse = J.transpose() * (J * J.transpose()).inverse();
-    dp.resize(3);
-
-    VectorXf dtheta = J_inverse * dp;
-    float dtheta1[3] = {dtheta[0], dtheta[1], dtheta[2]};
-    float dtheta2[3] = {dtheta[3], dtheta[4], dtheta[5]};
-    float dtheta3[3] = {dtheta[6], dtheta[7], dtheta[8]};
-    float dtheta4[3] = {dtheta[9], dtheta[10], dtheta[11]};
-    arm.updateAngles(dtheta1, dtheta2, dtheta3, dtheta4);
-    arm.updateEndpoint();
-    return false;
-  }
-  return true;
-}
-
-// takes in a float and calculates the next goal point on our path
-Vector4f nextGoal(float t){
-  Vector4f u(sqrt(2), sqrt(2), 0, 0);
-  Vector4f uxn(0, 0, -1, 0);
-  Vector4f c(4, 4, 0, 1);
-  return 4*cos(t)*u + 4*sin(t)*uxn + c;
-}
-
-//****************************************************
 // function that does the actual drawing of stuff
 //****************************************************
 void myDisplay() {
@@ -307,6 +263,44 @@ void myDisplay() {
 
   glFlush();
   glutSwapBuffers();          // swap buffers (we earlier set double buffer)
+}
+
+//****************************************************
+// Helper functions
+//****************************************************
+
+bool update(Vector4f& goal) {
+  myDisplay();
+  Vector4f goal_t = goal;
+  Vector4f g_sys = goal - arm.basepoint;
+  if(g_sys.norm() > arm.length) {
+    Vector3f norm_goal(g_sys(0), g_sys(1), g_sys(2));
+    norm_goal = norm_goal.normalized() * arm.length * 0.95;
+    goal_t << norm_goal(0), norm_goal(1), norm_goal(2), 1;
+  }
+  Vector4f tmp = goal_t - arm.endpoint;
+  Vector3f dp(tmp(0), tmp(1), tmp(2));
+  if (dp.norm() > 0.5) {
+    MatrixXf J = arm.getJ();
+    MatrixXf J_inverse = J.transpose() * (J * J.transpose()).inverse();
+    VectorXf dtheta = J_inverse * dp;
+    float dtheta1[3] = {dtheta[0], dtheta[1], dtheta[2]};
+    float dtheta2[3] = {dtheta[3], dtheta[4], dtheta[5]};
+    float dtheta3[3] = {dtheta[6], dtheta[7], dtheta[8]};
+    float dtheta4[3] = {dtheta[9], dtheta[10], dtheta[11]};
+    arm.updateAngles(dtheta1, dtheta2, dtheta3, dtheta4);
+    arm.updateEndpoint();
+    return false;
+  }
+  return true;
+}
+
+// takes in a float and calculates the next goal point on our path
+Vector4f nextGoal(float t){
+  Vector4f u(sqrt(2), sqrt(2), 0, 0);
+  Vector4f uxn(0, 0, -1, 0);
+  Vector4f c(4, 4, 0, 1);
+  return 4*cos(t)*u + 4*sin(t)*uxn + c;
 }
 
 //****************************************************
