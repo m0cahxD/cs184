@@ -31,7 +31,7 @@
 using namespace std;
 using namespace Eigen;
 
-#define deltaTheta 0.01
+#define deltaTheta 0.5
 #define PI 3.141592653
 
 void idleLoop();
@@ -244,6 +244,15 @@ void myReshape(int w, int h) {
 //****************************************************
 // function that does the actual drawing of stuff
 //****************************************************
+void drawPoint(Vector4f& point) {
+  glBegin(GL_TRIANGLES);
+  glColor3f(1.0f, 0.0f, 0.0f);
+  glVertex3f(point(0), point(1), point(2));
+  glVertex3f(point(0)+0.9, point(1)-0.9, point(2));
+  glVertex3f(point(0)+0.9, point(1), point(2));
+  glEnd();
+}
+
 void myDisplay() {
 
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);       // clear the color buffer
@@ -253,7 +262,7 @@ void myDisplay() {
 
   glColor3f(1.0f, 0.0f, 0.0f);
   
-  // Draw the path
+  /* Draw the path
   for(float t = 0; t < 1; t+=0.01) {
   path_goal = nextGoal(t);
   glBegin(GL_TRIANGLES);
@@ -262,14 +271,15 @@ void myDisplay() {
   glVertex3f(path_goal(0)+0.3, path_goal(1)-0.3, path_goal(2));
   glVertex3f(path_goal(0)+0.3, path_goal(1), path_goal(2));
   glEnd();
-  }
+  }*/
   
-  // Debug: draw the endpoints of all joints
+  /* Debug: draw the endpoints of all joints
   for(int i = 0; i < arm.joints.size(); i++) {
     Joint j = arm.joints[i];
-    
+    //drawPoint(arm.endpoint);
   }
-  
+  drawPoint(arm.endpoint);
+  */
   for(int i = 0; i < arm.joints.size(); i++) {
     Joint j = arm.joints[i];
     glRotatef(j.theta_z, 0.0, 0.0, 1.0);
@@ -293,14 +303,16 @@ void myDisplay() {
 bool update(Vector4f& goal) {
   Vector4f goal_t = goal;
   Vector4f g_sys = goal - arm.basepoint;
-  if(g_sys.norm() > arm.length) {
+  Vector3f g_sys_tmp(g_sys(0), g_sys(1), g_sys(2));
+  if(g_sys_tmp.norm() > arm.length) {
+    printf("Out of reach\n");
     Vector3f norm_goal(g_sys(0), g_sys(1), g_sys(2));
-    norm_goal = norm_goal.normalized() * arm.length * 0.99;
+    norm_goal = norm_goal.normalized() * arm.length * 0.89;
     goal_t << norm_goal(0), norm_goal(1), norm_goal(2), 1;
   }
   Vector4f tmp = goal_t - arm.endpoint;
   Vector3f dp(tmp(0), tmp(1), tmp(2));
-  if (dp.norm() > 0.01) {
+  if (dp.norm() > 0.1) {
     MatrixXf J = arm.getJ();
     MatrixXf J_inverse = J.transpose() * (J * J.transpose()).inverse();
     VectorXf dtheta = J_inverse * dp;
@@ -391,10 +403,13 @@ void initGL(int argc, char *argv[]) {
 
 void idleLoop() {
   path_goal = nextGoal(idle_t);
-  
-  update(path_goal);
+  bool finished = false;
+  while(!finished) {
+    finished = update(path_goal);
+  }
+  printf("New iteration\n");
   myDisplay();
-  idle_t += 0.01;
+  idle_t += 0.05;
 }
 
 //****************************************************
