@@ -66,17 +66,17 @@ public:
   float theta_z;
 
   Joint() {
-	this->length = 1;
-	this->origin << 0, 0, 0, 1;
-	
+    this->length = 1;
+    this->origin << 0, 0, 0, 1;
+    
     // Joint lies along the x axis
-	translation << 1, 0, 0, length,
-                 0, 1, 0, 0,
-                 0, 0, 1, 0,
-                 0, 0, 0, 1;
-  this->end = translation * origin;
-  rotation.setIdentity();
-  setRotation(0, 0, 0);
+    translation << 1, 0, 0, length,
+                   0, 1, 0, 0,
+                   0, 0, 1, 0,
+                   0, 0, 0, 1;
+    this->end = translation * origin;
+    rotation.setIdentity();
+    setRotation(0, 0, 0);
   }
 
   Joint(float length) {
@@ -84,7 +84,7 @@ public:
     this->origin << 0, 0, 0, 1;
 
     // Joint lies along the x axis
-	translation << 1, 0, 0, length,
+  translation << 1, 0, 0, length,
                  0, 1, 0, 0,
                  0, 0, 1, 0,
                  0, 0, 0, 1;
@@ -123,21 +123,7 @@ public:
             uy*ux*(1-cos(theta_z))+uz*sin(theta_z), cos(theta_z)+uy*uy*(1-cos(theta_z)),    uy*uz*(1-cos(theta_z))-ux*sin(theta_z), 0,
             uz*ux*(1-cos(theta_z))-uy*sin(theta_z), uz*uy*(1-cos(theta_z))+ux*sin(theta_z), cos(theta_z)+uz*uz*(1-cos(theta_z)),    0,
             0,                          0,                          0,                          1;
-    /*
-    rotation_x << 1,             0,             0,             0,
-                  0,             cos(theta_x),  -sin(theta_x), 0,
-                  0,             sin(theta_x),  cos(theta_x),  0,
-				  0,             0,             0,             1;
-    rotation_y << cos(theta_y),  0,             sin(theta_y),  0,
-                  0,             1,             0,             0,
-                  -sin(theta_y), 0,             cos(theta_y),  0,
-				  0,             0,             0,             1;
-    rotation_z << cos(theta_z),  -sin(theta_z), 0,             0,
-                  sin(theta_z),  cos(theta_z),  0,             0,
-                  0,             0,             1,             0,
-				  0,             0,             0,             1;
-    */
-    //cout << "theta_x: " << theta_x << " --- theta_y: " << theta_y << " --- theta_z: " << theta_z << endl;
+    
     rotation = rot_y * rot_z * rot_x;
   }
   
@@ -189,7 +175,6 @@ public:
     Joint oldJoint = joints[index];
     Joint newJoint = Joint(oldJoint.length);
     newJoint.setRotation(oldJoint.theta_x, oldJoint.theta_y, oldJoint.theta_z);
-    // 0: X axis rotation, 1: Y axis rotation, 2: Z axis rotation
     if(axis == 0) {
       newJoint.updateRotation(theta, 0, 0);
     } else if(axis == 1) {
@@ -226,7 +211,7 @@ public:
   }
   
   MatrixXf getJ() {
-    MatrixXf J(3, 12);
+    MatrixXf J(3, 15);
     float del = 0.01;
     for(size_t i = 0; i < joints.size(); i++) {
       Vector4f end = findEndpoint(i, 0, del);
@@ -237,29 +222,29 @@ public:
       J(2, i * 3) = dp[2];
       end = findEndpoint(i, 1, del);
       
-	  dp = end - endpoint;
+    dp = end - endpoint;
       dp = dp / del;
       J(0, i * 3 + 1) = dp[0];
       J(1, i * 3 + 1) = dp[1];
       J(2, i * 3 + 1) = dp[2];
       
-	  end = findEndpoint(i, 2, del);
+    end = findEndpoint(i, 2, del);
       dp = end - endpoint;
       dp = dp / del;
       J(0, i * 3 + 2) = dp[0];
       J(1, i * 3 + 2) = dp[1];
       J(2, i * 3 + 2) = dp[2];
-	  //cout << "joint: " << i << " --- dp: " << dp << endl;
     }
     return J;
   }
   
   // Update angles for each joint in the system
-  void updateAngles(float dtheta1[], float dtheta2[], float dtheta3[], float dtheta4[]) {
+  void updateAngles(float dtheta1[], float dtheta2[], float dtheta3[], float dtheta4[], float dtheta5[]) {
     joints[0].updateRotation(dtheta1[0], dtheta1[1], dtheta1[2]);
     joints[1].updateRotation(dtheta2[0], dtheta2[1], dtheta2[2]);
     joints[2].updateRotation(dtheta3[0], dtheta3[1], dtheta3[2]);
     joints[3].updateRotation(dtheta4[0], dtheta4[1], dtheta4[2]);
+    joints[4].updateRotation(dtheta5[0], dtheta5[1], dtheta5[2]);
   }
 };
 
@@ -282,7 +267,6 @@ void myReshape(int w, int h) {
   glMatrixMode(GL_PROJECTION);
   glLoadIdentity();
   glOrtho(-5, 5, -5, 5, -5, 5);
-  //gluLookAt(-3.0, 8.0, 0.0, 7, -4, 0, 0, 1, 0);
 }
 
 //****************************************************
@@ -298,39 +282,13 @@ void drawPoint(Vector4f& point) {
 }
 
 void myDisplay() {
-  //printf("myDisplay call ------\n");
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);       // clear the color buffer
 
-  glMatrixMode(GL_MODELVIEW);             // indicate we are specifying camera transformations
-  glLoadIdentity();               // make sure transformation is "zero'd"
+  glMatrixMode(GL_MODELVIEW);                               // indicate we are specifying camera transformations
+  glLoadIdentity();                                         // make sure transformation is "zero'd"
 
   glColor3f(1.0f, 0.0f, 0.0f);
-  /*
-  arm.joints[0].setRotation(0, 0, 0);
-  arm.joints[1].setRotation(0, 0, 90);
-  arm.joints[2].setRotation(0, 0, -90);
-  arm.joints[3].setRotation(0, 0, -90);
-  arm.updateEndpoint();
-  cout << "endpoint " << arm.endpoint << endl;
-  */
-  /* Draw the path
-  for(float t = 0; t < 1; t+=0.01) {
-  path_goal = nextGoal(t);
-  glBegin(GL_TRIANGLES);
-  glColor3f(1.0f, 0.0f, 0.0f);
-  glVertex3f(path_goal(0), path_goal(1), path_goal(2));
-  glVertex3f(path_goal(0)+0.3, path_goal(1)-0.3, path_goal(2));
-  glVertex3f(path_goal(0)+0.3, path_goal(1), path_goal(2));
-  glEnd();
-  }*/
-  
-  /* Debug: draw the endpoints of all joints
-  for(int i = 0; i < arm.joints.size(); i++) {
-    Joint j = arm.joints[i];
-    //drawPoint(arm.endpoint);
-  }
-  drawPoint(arm.endpoint);
-  */
+
   arm.updateEndpoint();
   for(int i = 0; i < arm.joints.size(); i++) {
     Joint j = arm.joints[i];
@@ -339,14 +297,13 @@ void myDisplay() {
     glRotatef(j.theta_x * 180 / PI, 1.0, 0.0, 0.0);
     glPushMatrix();
     glRotatef(90, 0.0, 1.0, 0.0);
-    glutSolidCone(j.length*0.2, j.length, 50, 50);
+    glutSolidCone(j.length*0.1, j.length, 50, 50);
     glPopMatrix();
     glTranslatef(j.length, 0.0, 0.0);
     
   }
-  //cout << "endpoint " << arm.endpoint << endl;
   glFlush();
-  glutSwapBuffers();          // swap buffers (we earlier set double buffer)
+  glutSwapBuffers();                                        // swap buffers (we earlier set double buffer)
 }
 
 //****************************************************
@@ -360,27 +317,21 @@ bool update(Vector4f& goal) {
   if(g_sys_tmp.norm() > arm.length) {
     //printf("Out of reach\n");
     Vector3f norm_goal(g_sys(0), g_sys(1), g_sys(2));
-    norm_goal = norm_goal.normalized() * arm.length;
+    norm_goal = norm_goal.normalized() * arm.length * 0.99;
     goal_t << norm_goal(0), norm_goal(1), norm_goal(2), 1;
   }
   Vector4f tmp = goal_t - arm.endpoint;
   Vector3f dp(tmp(0), tmp(1), tmp(2));
-  //cout << "dp: " << dp << endl;
-  //printf("dist to goal: %f\n", dp.norm());
   if (dp.norm() > 0.1) {
     MatrixXf J = arm.getJ();
-    //MatrixXf J_inverse = J.transpose() * (J * J.transpose()).inverse();
-    //MatrixXf J_inverse = (J.transpose() * J).inverse() * J;
     VectorXf dtheta = J.jacobiSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(dp);
-    //VectorXf dtheta = J_inverse * dp;
     float dtheta1[3] = {dtheta[0], dtheta[1], dtheta[2]};
     float dtheta2[3] = {dtheta[3], dtheta[4], dtheta[5]};
     float dtheta3[3] = {dtheta[6], dtheta[7], dtheta[8]};
     float dtheta4[3] = {dtheta[9], dtheta[10], dtheta[11]};
-    arm.updateAngles(dtheta1, dtheta2, dtheta3, dtheta4);
+    float dtheta5[3] = {dtheta[12], dtheta[13], dtheta[14]};
+    arm.updateAngles(dtheta1, dtheta2, dtheta3, dtheta4, dtheta5);
     arm.updateEndpoint();
-    //cout << dtheta << endl;
-    //cout << "new endpoint: " << arm.endpoint << endl;
     return false;
   }
   return true;
@@ -388,10 +339,11 @@ bool update(Vector4f& goal) {
 
 // takes in a float and calculates the next goal point on our path
 Vector4f nextGoal(float t) {
-  Vector4f u(sqrt(2), sqrt(2), 0, 0);
-  Vector4f uxn(0, 0, -1, 0);
-  Vector4f c(4*sqrt(2), 4*sqrt(2), 0, 1);
-  return 4*cos(t)*u + 4*sin(t)*uxn + c;
+  float r = 3 * (1 - cos(t));
+  float x = r * sin(t);
+  float y = r * cos(t) + 6;
+  Vector4f toRet(x, y, 0, 1);
+  return toRet;
 }
 
 //****************************************************
@@ -425,7 +377,7 @@ void initGL(int argc, char *argv[]) {
   viewport.w = 700;
   viewport.h = 700;
   
-  //The size and position of the window
+  // The size and position of the window
   glutInitWindowSize(viewport.w, viewport.h);
   glutInitWindowPosition(0,0);
   glutCreateWindow(argv[0]);
@@ -433,9 +385,6 @@ void initGL(int argc, char *argv[]) {
   glLoadIdentity();
 
   // Set default toggles to flat shading and filled mode
-  //glShadeModel(GL_FLAT);
-  //glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-
   glClearColor(0.0, 0.0, 0.0, 0.0);
 
   glEnable(GL_NORMALIZE);
@@ -461,15 +410,13 @@ void initGL(int argc, char *argv[]) {
 }
 
 void idleLoop() {
-  //cout << "calling idleLoop()" << endl;
   path_goal = nextGoal(idle_t);
   bool finished = false;
   int count = 0;
   while(!finished) {
     finished = update(path_goal);
   }
-  //printf("New iteration\n");
-	myDisplay();
+  myDisplay();
   idle_t += 0.001;
 }
 
@@ -485,10 +432,11 @@ int main(int argc, char *argv[]) {
   printf("initGL finished\n");
   
   // Lower -> higher index corresponds to base -> end of the arm
-  Joint j1(2.2);
+  Joint j1(2.0);
   Joint j2(2.0);
   Joint j3(1.0);
   Joint j4(0.8);
+  Joint j5(0.5);
 
   printf("Joints initialized\n");
   
@@ -497,6 +445,7 @@ int main(int argc, char *argv[]) {
   joints.push_back(j2);
   joints.push_back(j3);
   joints.push_back(j4);
+  joints.push_back(j5);
 
   printf("Joints added to vector\n");
   
@@ -504,45 +453,10 @@ int main(int argc, char *argv[]) {
   arm.updateJoints(joints);
   
   printf("Arm initialized\n");
-
-  /* Run update once
-  for(float t = 0; t < 1; t += step) {
-    goal = nextGoal(t);
-    bool finished = false;
-    while(!finished) {
-      finished = update(goal);
-    }
-  }*/
-  /*
-  Joint j5(2.0);
-  Joint j6(2.0);
-  Joint j7(1.0);
-  Joint j8(1.0);
-  Arm test_arm();
-  vector<Joint, Eigen::aligned_allocator<Joint>> joints;
-  joints.push_back(j5);
-  joints.push_back(j6);
-  joints.push_back(j7);
-  joints.push_back(j8);
-  // Add joints to the system
-  test_arm.updateJoints(joints);
-  */
-  
-  /*
-  for(float t = 0; t < 3; t += step) {
-    goal = nextGoal(t);
-    bool finished = false;
-    while(!finished) {
-      finished = update(goal);
-    }
-    myDisplay();
-    // Todo: draw the updated system
-  }*/
   
   printf("Finished loops\n");
 
   glutMainLoop();             // infinite loop that will keep drawing and resizing
-  // and whatever else
 
   return 0;
 }
