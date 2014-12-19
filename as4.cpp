@@ -98,13 +98,32 @@ public:
     this->theta_y = theta_y;
     this->theta_z = theta_z;
     
-    theta_x = theta_x * PI / 180.0;
-    theta_y = theta_y * PI / 180.0;
-    theta_z = theta_z * PI / 180.0;
-    
-    Matrix4f rotation_x;
-    Matrix4f rotation_y;
-    Matrix4f rotation_z;
+    Matrix4f rot_x;
+    Matrix4f rot_y;
+    Matrix4f rot_z;
+    float ux, uy, uz;
+    ux = 1.0;
+    uy = 0.0;
+    uz = 0.0;
+    rot_x <<  cos(theta_x)+ux*ux*(1-cos(theta_x)),    ux*uy*(1-cos(theta_x))-uz*sin(theta_x), ux*uz*(1-cos(theta_x))+uy*sin(theta_x), 0,
+            uy*ux*(1-cos(theta_x))+uz*sin(theta_x), cos(theta_x)+uy*uy*(1-cos(theta_x)),    uy*uz*(1-cos(theta_x))-ux*sin(theta_x), 0,
+            uz*ux*(1-cos(theta_x))-uy*sin(theta_x), uz*uy*(1-cos(theta_x))+ux*sin(theta_x), cos(theta_x)+uz*uz*(1-cos(theta_x)),    0,
+            0,                          0,                          0,                          1;
+    ux = 0.0;
+    uy = 1.0;
+    uz = 0.0;
+    rot_y <<  cos(theta_y)+ux*ux*(1-cos(theta_y)),    ux*uy*(1-cos(theta_y))-uz*sin(theta_y), ux*uz*(1-cos(theta_y))+uy*sin(theta_y), 0,
+            uy*ux*(1-cos(theta_y))+uz*sin(theta_y), cos(theta_y)+uy*uy*(1-cos(theta_y)),    uy*uz*(1-cos(theta_y))-ux*sin(theta_y), 0,
+            uz*ux*(1-cos(theta_y))-uy*sin(theta_y), uz*uy*(1-cos(theta_y))+ux*sin(theta_y), cos(theta_y)+uz*uz*(1-cos(theta_y)),    0,
+            0,                          0,                          0,                          1;
+    ux = 0.0;
+    uy = 0.0;
+    uz = 1.0;
+    rot_z <<  cos(theta_z)+ux*ux*(1-cos(theta_z)),    ux*uy*(1-cos(theta_z))-uz*sin(theta_z), ux*uz*(1-cos(theta_z))+uy*sin(theta_z), 0,
+            uy*ux*(1-cos(theta_z))+uz*sin(theta_z), cos(theta_z)+uy*uy*(1-cos(theta_z)),    uy*uz*(1-cos(theta_z))-ux*sin(theta_z), 0,
+            uz*ux*(1-cos(theta_z))-uy*sin(theta_z), uz*uy*(1-cos(theta_z))+ux*sin(theta_z), cos(theta_z)+uz*uz*(1-cos(theta_z)),    0,
+            0,                          0,                          0,                          1;
+    /*
     rotation_x << 1,             0,             0,             0,
                   0,             cos(theta_x),  -sin(theta_x), 0,
                   0,             sin(theta_x),  cos(theta_x),  0,
@@ -117,7 +136,9 @@ public:
                   sin(theta_z),  cos(theta_z),  0,             0,
                   0,             0,             1,             0,
 				  0,             0,             0,             1;
-    rotation = rotation_x * rotation_y * rotation_z;
+    */
+    //cout << "theta_x: " << theta_x << " --- theta_y: " << theta_y << " --- theta_z: " << theta_z << endl;
+    rotation = rot_z * rot_y * rot_x;
   }
   
   void updateRotation(float dtheta_x, float dtheta_y, float dtheta_z) {
@@ -199,7 +220,7 @@ public:
   
   MatrixXf getJ() {
     MatrixXf J(3, 12);
-    float del[4] = {0.2, 0.2, 0.2, 0.2};
+    float del[4] = {0.18, 0.18, 0.18, 0.18};
     for(size_t i = 0; i < joints.size(); i++) {
       Vector4f end = findEndpoint(i, del[i]);
       Vector4f dp = end - endpoint;
@@ -297,12 +318,12 @@ void myDisplay() {
   arm.updateEndpoint();
   for(int i = 0; i < arm.joints.size(); i++) {
     Joint j = arm.joints[i];
-    glRotatef(j.theta_x, 1.0, 0.0, 0.0);
-    glRotatef(j.theta_y, 0.0, 1.0, 0.0);
-    glRotatef(j.theta_z, 0.0, 0.0, 1.0);
+    glRotatef(j.theta_z * 180 / PI, 0.0, 0.0, 1.0);
+    glRotatef(j.theta_y * 180 / PI, 0.0, 1.0, 0.0);
+    glRotatef(j.theta_x * 180 / PI, 1.0, 0.0, 0.0);
     glPushMatrix();
     glRotatef(90, 0.0, 1.0, 0.0);
-    glutSolidCone(0.3, j.length, 50, 50);
+    glutSolidCone(0.2, j.length, 50, 50);
     glPopMatrix();
     glTranslatef(j.length, 0.0, 0.0);
     
@@ -330,7 +351,7 @@ bool update(Vector4f& goal) {
   Vector3f dp(tmp(0), tmp(1), tmp(2));
   //cout << "dp: " << dp << endl;
   //printf("dist to goal: %f\n", dp.norm());
-  if (dp.norm() > 0.3) {
+  if (dp.norm() > 0.1) {
     MatrixXf J = arm.getJ();
     //MatrixXf J_inverse = J.transpose() * (J * J.transpose()).inverse();
     //MatrixXf J_inverse = (J.transpose() * J).inverse() * J;
@@ -418,7 +439,7 @@ void initGL(int argc, char *argv[]) {
   // Add keyboard bindings
   glutKeyboardFunc(onKeyPress);
   glutSpecialFunc(onDirectionalKeyPress);
-  //glutIdleFunc(idleLoop);
+  glutIdleFunc(idleLoop);
 }
 
 void idleLoop() {
@@ -431,7 +452,7 @@ void idleLoop() {
   }
   //printf("New iteration\n");
 	myDisplay();
-  idle_t += 0.0005;
+  idle_t += 0.001;
 }
 
 //****************************************************
