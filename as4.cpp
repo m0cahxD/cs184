@@ -227,7 +227,7 @@ public:
   
   MatrixXf getJ() {
     MatrixXf J(3, 12);
-    float del = 0.01;
+    float del = 0.001;
     for(size_t i = 0; i < joints.size(); i++) {
       Vector4f end = findEndpoint(i, 0, del);
       Vector4f dp = end - endpoint;
@@ -277,12 +277,12 @@ Vector4f path_goal;
 void myReshape(int w, int h) {
   viewport.w = w;
   viewport.h = h;
-
   glViewport (0,0,viewport.w,viewport.h);
   glMatrixMode(GL_PROJECTION);
   glLoadIdentity();
-  glOrtho(-5, 5, -5, 5, -5, 5);
-  //gluLookAt(-3.0, 8.0, 0.0, 7, -4, 0, 0, 1, 0);
+  //glOrtho(-5, 5, -5, 5, -5, 5);
+  gluPerspective(65.0, (float)viewport.w/viewport.h, 1, 1000);
+  gluLookAt(-5.0, 3.0, 0.0, 1, 0.6, 0, 0, 1, 0);
 }
 
 //****************************************************
@@ -303,34 +303,53 @@ void myDisplay() {
 
   glMatrixMode(GL_MODELVIEW);             // indicate we are specifying camera transformations
   glLoadIdentity();               // make sure transformation is "zero'd"
-
-  glColor3f(1.0f, 0.0f, 0.0f);
-  /*
-  arm.joints[0].setRotation(0, 0, 0);
-  arm.joints[1].setRotation(0, 0, 90);
-  arm.joints[2].setRotation(0, 0, -90);
-  arm.joints[3].setRotation(0, 0, -90);
-  arm.updateEndpoint();
-  cout << "endpoint " << arm.endpoint << endl;
-  */
-  /* Draw the path
-  for(float t = 0; t < 1; t+=0.01) {
-  path_goal = nextGoal(t);
-  glBegin(GL_TRIANGLES);
-  glColor3f(1.0f, 0.0f, 0.0f);
-  glVertex3f(path_goal(0), path_goal(1), path_goal(2));
-  glVertex3f(path_goal(0)+0.3, path_goal(1)-0.3, path_goal(2));
-  glVertex3f(path_goal(0)+0.3, path_goal(1), path_goal(2));
-  glEnd();
-  }*/
   
-  /* Debug: draw the endpoints of all joints
-  for(int i = 0; i < arm.joints.size(); i++) {
-    Joint j = arm.joints[i];
-    //drawPoint(arm.endpoint);
+  GLfloat ka[] = {0.1, 0.1, 0.1};
+  GLfloat kd[] = {1.0, 1.0, 1.0};
+  GLfloat ks[] = {1.0, 1.0, 1.0, 20.0};
+  glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, ka);
+  glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, kd);
+  glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, ks);
+  glBegin(GL_POINTS);
+  glPointSize(3.0);
+  Vector4f path;
+  for(float t = 0; t < 2*PI; t+=0.02) {
+    path = nextGoal(t);
+    glVertex3f(path[0], path[1], path[2]);
   }
-  drawPoint(arm.endpoint);
-  */
+  glEnd();
+  
+  glBegin(GL_TRIANGLES);
+  GLfloat ka0[] = {0.1, 0.1, 0.1};
+  GLfloat kd0[] = {0.53, 0.81, 0.98};
+  GLfloat ks0[] = {0.1, 0.1, 1.0, 20.0};
+  glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, ka0);
+  glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, kd0);
+  glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, ks0);
+  glVertex3f(105, -20, 100);
+  glVertex3f(105, -20, -100);
+  glVertex3f(105, 100, 0);
+  glEnd();
+  
+  glBegin(GL_TRIANGLES);
+  GLfloat ka1[] = {0.1, 0.1, 0.1};
+  GLfloat kd1[] = {0.0, 0.65, 0.07};
+  GLfloat ks1[] = {0.1, 0.1, 0.1, 2.0};
+  glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, ka1);
+  glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, kd1);
+  glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, ks1);
+  glVertex3f(-100, -10, 0);
+  glVertex3f(100, -10, -100);
+  glVertex3f(100, -10, 100);
+  glEnd();
+  
+  GLfloat ka2[] = {0.1, 0.1, 0.1};
+  GLfloat kd2[] = {0.99, 0.42, 0.52};
+  GLfloat ks2[] = {0.1, 0.05, 0.05, 5.0};
+  glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, ka2);
+  glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, kd2);
+  glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, ks2);
+  
   arm.updateEndpoint();
   for(int i = 0; i < arm.joints.size(); i++) {
     Joint j = arm.joints[i];
@@ -339,7 +358,7 @@ void myDisplay() {
     glRotatef(j.theta_x * 180 / PI, 1.0, 0.0, 0.0);
     glPushMatrix();
     glRotatef(90, 0.0, 1.0, 0.0);
-    glutSolidCone(j.length*0.2, j.length, 50, 50);
+    glutSolidCone(j.length*0.1, j.length, 50, 50);
     glPopMatrix();
     glTranslatef(j.length, 0.0, 0.0);
     
@@ -442,14 +461,12 @@ void initGL(int argc, char *argv[]) {
   glEnable(GL_LIGHT0);
   glEnable(GL_LIGHTING);
   glEnable(GL_DEPTH_TEST);
+  
+  glEnable(GL_LINE_STIPPLE);
+  glEnable(GL_LINE_SMOOTH);
 
-  GLfloat pl[] = {1.0, 1.0, 1.0, -1.0};
-  GLfloat ka[] = {1.0, 1.0, 1.0};
-  GLfloat kd[] = {1.0, 1.0, 1.0};
-
+  GLfloat pl[] = {0.0, 20.0, 0.0, 1.0};
   glLightfv(GL_LIGHT0, GL_POSITION, pl);
-  glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, ka);
-  glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, kd);
   
   glutDisplayFunc(myDisplay);       // function to run when its time to draw something
   glutReshapeFunc(myReshape);       // function to run when the window gets resized
