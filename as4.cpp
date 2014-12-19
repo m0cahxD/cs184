@@ -66,17 +66,17 @@ public:
   float theta_z;
 
   Joint() {
-    this->length = 1;
-    this->origin << 0, 0, 0, 1;
-    
+  this->length = 1;
+  this->origin << 0, 0, 0, 1;
+  
     // Joint lies along the x axis
-    translation << 1, 0, 0, length,
-                   0, 1, 0, 0,
-                   0, 0, 1, 0,
-                   0, 0, 0, 1;
-    this->end = translation * origin;
-    rotation.setIdentity();
-    setRotation(0, 0, 0);
+  translation << 1, 0, 0, length,
+                 0, 1, 0, 0,
+                 0, 0, 1, 0,
+                 0, 0, 0, 1;
+  this->end = translation * origin;
+  rotation.setIdentity();
+  setRotation(0, 0, 0);
   }
 
   Joint(float length) {
@@ -214,26 +214,43 @@ public:
     MatrixXf J(3, 15);
     float del = 0.01;
     for(size_t i = 0; i < joints.size(); i++) {
-      Vector4f end = findEndpoint(i, 0, del);
-      Vector4f dp = end - endpoint;
-      dp = dp / del;
-      J(0, i * 3) = dp[0];
-      J(1, i * 3) = dp[1];
-      J(2, i * 3) = dp[2];
-      end = findEndpoint(i, 1, del);
-      
-    dp = end - endpoint;
-      dp = dp / del;
-      J(0, i * 3 + 1) = dp[0];
-      J(1, i * 3 + 1) = dp[1];
-      J(2, i * 3 + 1) = dp[2];
-      
-    end = findEndpoint(i, 2, del);
-      dp = end - endpoint;
-      dp = dp / del;
-      J(0, i * 3 + 2) = dp[0];
-      J(1, i * 3 + 2) = dp[1];
-      J(2, i * 3 + 2) = dp[2];
+      if(i != 0){
+        Vector4f end = findEndpoint(i, 0, del);
+        Vector4f dp = end - endpoint;
+        dp = dp / del;
+        J(0, i * 3) = dp[0];
+        J(1, i * 3) = dp[1];
+        J(2, i * 3) = dp[2];
+        end = findEndpoint(i, 1, del);
+        
+        dp = end - endpoint;
+        dp = dp / del;
+        J(0, i * 3 + 1) = dp[0];
+        J(1, i * 3 + 1) = dp[1];
+        J(2, i * 3 + 1) = dp[2];
+        
+        end = findEndpoint(i, 2, del);
+        dp = end - endpoint;
+        dp = dp / del;
+        J(0, i * 3 + 2) = dp[0];
+        J(1, i * 3 + 2) = dp[1];
+        J(2, i * 3 + 2) = dp[2];
+      }else{
+        Vector4f end = findEndpoint(i, 2, del);
+        Vector4f dp = end - endpoint;
+        dp = dp / del;
+        J(0, i * 3) = 0;
+        J(1, i * 3) = 0;
+        J(2, i * 3) = 0;
+
+        J(0, i * 3 + 1) = 0;
+        J(1, i * 3 + 1) = 0;
+        J(2, i * 3 + 1) = 0;
+
+        J(0, i * 3 + 2) = dp[0];
+        J(1, i * 3 + 2) = dp[1];
+        J(2, i * 3 + 2) = dp[2];
+      }
     }
     return J;
   }
@@ -342,7 +359,7 @@ Vector4f nextGoal(float t) {
   float r = 3 * (1 - cos(t));
   float x = r * sin(t);
   float y = r * cos(t) + 6;
-  Vector4f toRet(x, y, 0, 1);
+  Vector4f toRet(x, y, sin(t), 1);
   return toRet;
 }
 
