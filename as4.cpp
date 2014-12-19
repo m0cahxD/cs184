@@ -282,6 +282,7 @@ void myReshape(int w, int h) {
   glMatrixMode(GL_PROJECTION);
   glLoadIdentity();
   glOrtho(-5, 5, -5, 5, -5, 5);
+  //gluLookAt(-3.0, 8.0, 0.0, 7, -4, 0, 0, 1, 0);
 }
 
 //****************************************************
@@ -338,7 +339,7 @@ void myDisplay() {
     glRotatef(j.theta_x * 180 / PI, 1.0, 0.0, 0.0);
     glPushMatrix();
     glRotatef(90, 0.0, 1.0, 0.0);
-    glutSolidCone(j.length*0.4, j.length, 50, 50);
+    glutSolidCone(j.length*0.2, j.length, 50, 50);
     glPopMatrix();
     glTranslatef(j.length, 0.0, 0.0);
     
@@ -359,7 +360,7 @@ bool update(Vector4f& goal) {
   if(g_sys_tmp.norm() > arm.length) {
     //printf("Out of reach\n");
     Vector3f norm_goal(g_sys(0), g_sys(1), g_sys(2));
-    norm_goal = norm_goal.normalized() * arm.length * 0.99;
+    norm_goal = norm_goal.normalized() * arm.length;
     goal_t << norm_goal(0), norm_goal(1), norm_goal(2), 1;
   }
   Vector4f tmp = goal_t - arm.endpoint;
@@ -484,7 +485,7 @@ int main(int argc, char *argv[]) {
   printf("initGL finished\n");
   
   // Lower -> higher index corresponds to base -> end of the arm
-  Joint j1(2.5);
+  Joint j1(2.2);
   Joint j2(2.0);
   Joint j3(1.0);
   Joint j4(0.8);
