@@ -1,4 +1,3 @@
-
 #include <vector>
 #include <iostream>
 #include <fstream>
@@ -66,17 +65,17 @@ public:
   float theta_z;
 
   Joint() {
-    this->length = 1;
-    this->origin << 0, 0, 0, 1;
-    
+  this->length = 1;
+  this->origin << 0, 0, 0, 1;
+  
     // Joint lies along the x axis
-    translation << 1, 0, 0, length,
-                   0, 1, 0, 0,
-                   0, 0, 1, 0,
-                   0, 0, 0, 1;
-    this->end = translation * origin;
-    rotation.setIdentity();
-    setRotation(0, 0, 0);
+  translation << 1, 0, 0, length,
+                 0, 1, 0, 0,
+                 0, 0, 1, 0,
+                 0, 0, 0, 1;
+  this->end = translation * origin;
+  rotation.setIdentity();
+  setRotation(0, 0, 0);
   }
 
   Joint(float length) {
@@ -212,28 +211,45 @@ public:
   
   MatrixXf getJ() {
     MatrixXf J(3, 15);
-    float del = 0.01;
+    float del = 0.001;
     for(size_t i = 0; i < joints.size(); i++) {
-      Vector4f end = findEndpoint(i, 0, del);
-      Vector4f dp = end - endpoint;
-      dp = dp / del;
-      J(0, i * 3) = dp[0];
-      J(1, i * 3) = dp[1];
-      J(2, i * 3) = dp[2];
-      end = findEndpoint(i, 1, del);
-      
-    dp = end - endpoint;
-      dp = dp / del;
-      J(0, i * 3 + 1) = dp[0];
-      J(1, i * 3 + 1) = dp[1];
-      J(2, i * 3 + 1) = dp[2];
-      
-    end = findEndpoint(i, 2, del);
-      dp = end - endpoint;
-      dp = dp / del;
-      J(0, i * 3 + 2) = dp[0];
-      J(1, i * 3 + 2) = dp[1];
-      J(2, i * 3 + 2) = dp[2];
+      if(i != 0){
+        Vector4f end = findEndpoint(i, 0, del);
+        Vector4f dp = end - endpoint;
+        dp = dp / del;
+        J(0, i * 3) = dp[0];
+        J(1, i * 3) = dp[1];
+        J(2, i * 3) = dp[2];
+        end = findEndpoint(i, 1, del);
+        
+        dp = end - endpoint;
+        dp = dp / del;
+        J(0, i * 3 + 1) = dp[0];
+        J(1, i * 3 + 1) = dp[1];
+        J(2, i * 3 + 1) = dp[2];
+        
+        end = findEndpoint(i, 2, del);
+        dp = end - endpoint;
+        dp = dp / del;
+        J(0, i * 3 + 2) = dp[0];
+        J(1, i * 3 + 2) = dp[1];
+        J(2, i * 3 + 2) = dp[2];
+      }else{
+        Vector4f end = findEndpoint(i, 2, del);
+        Vector4f dp = end - endpoint;
+        dp = dp / del;
+        J(0, i * 3) = 0;
+        J(1, i * 3) = 0;
+        J(2, i * 3) = 0;
+
+        J(0, i * 3 + 1) = 0;
+        J(1, i * 3 + 1) = 0;
+        J(2, i * 3 + 1) = 0;
+
+        J(0, i * 3 + 2) = dp[0];
+        J(1, i * 3 + 2) = dp[1];
+        J(2, i * 3 + 2) = dp[2];
+      }
     }
     return J;
   }
@@ -262,11 +278,13 @@ Vector4f path_goal;
 void myReshape(int w, int h) {
   viewport.w = w;
   viewport.h = h;
-
   glViewport (0,0,viewport.w,viewport.h);
   glMatrixMode(GL_PROJECTION);
   glLoadIdentity();
-  glOrtho(-5, 5, -5, 5, -5, 5);
+  //glOrtho(-5, 5, -5, 5, -5, 5);
+  gluPerspective(65.0, (float)viewport.w/viewport.h, 1, 1000);
+  //gluLookAt(-5.0, 3.0, 0.0, 1, 0.6, 0, 0, 1, 0);
+  gluLookAt(0, 8, 6, 0, 2.5, -1, 0, 1, 0);
 }
 
 //****************************************************
@@ -282,13 +300,56 @@ void drawPoint(Vector4f& point) {
 }
 
 void myDisplay() {
-  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);       // clear the color buffer
-
-  glMatrixMode(GL_MODELVIEW);                               // indicate we are specifying camera transformations
-  glLoadIdentity();                                         // make sure transformation is "zero'd"
-
-  glColor3f(1.0f, 0.0f, 0.0f);
-
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  glMatrixMode(GL_MODELVIEW);
+  glLoadIdentity();
+  
+  GLfloat ka[] = {0.1, 0.1, 0.1};
+  GLfloat kd[] = {1.0, 1.0, 1.0};
+  GLfloat ks[] = {1.0, 1.0, 1.0, 20.0};
+  glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, ka);
+  glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, kd);
+  glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, ks);
+  glBegin(GL_POINTS);
+  glPointSize(3.0);
+  Vector4f path;
+  for(float t = 0; t < 2*PI; t+=0.02) {
+    path = nextGoal(t);
+    glVertex3f(path[0], path[1], path[2]);
+  }
+  glEnd();
+  
+  glBegin(GL_TRIANGLES);
+  GLfloat ka0[] = {0.1, 0.1, 0.1};
+  GLfloat kd0[] = {0.53, 0.81, 0.98};
+  GLfloat ks0[] = {0.1, 0.1, 1.0, 20.0};
+  glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, ka0);
+  glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, kd0);
+  glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, ks0);
+  glVertex3f(100, -20, -50);
+  glVertex3f(-100, -20, -50);
+  glVertex3f(0, 180, -50);
+  glEnd();
+  
+  glBegin(GL_TRIANGLES);
+  GLfloat ka1[] = {0.1, 0.1, 0.1};
+  GLfloat kd1[] = {0.0, 0.65, 0.07};
+  GLfloat ks1[] = {0.1, 0.1, 0.1, 2.0};
+  glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, ka1);
+  glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, kd1);
+  glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, ks1);
+  glVertex3f(100, -10, -45);
+  glVertex3f(-100, -10, -45);
+  glVertex3f(0, -10, 150);
+  glEnd();
+  
+  GLfloat ka2[] = {0.1, 0.1, 0.1};
+  GLfloat kd2[] = {0.99, 0.42, 0.52};
+  GLfloat ks2[] = {0.1, 0.05, 0.05, 5.0};
+  glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, ka2);
+  glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, kd2);
+  glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, ks2);
+  
   arm.updateEndpoint();
   for(int i = 0; i < arm.joints.size(); i++) {
     Joint j = arm.joints[i];
@@ -297,7 +358,7 @@ void myDisplay() {
     glRotatef(j.theta_x * 180 / PI, 1.0, 0.0, 0.0);
     glPushMatrix();
     glRotatef(90, 0.0, 1.0, 0.0);
-    glutSolidCone(j.length*0.1, j.length, 50, 50);
+    glutSolidCone(j.length*0.09, j.length, 50, 50);
     glPopMatrix();
     glTranslatef(j.length, 0.0, 0.0);
     
@@ -315,7 +376,6 @@ bool update(Vector4f& goal) {
   Vector4f g_sys = goal - arm.basepoint;
   Vector3f g_sys_tmp(g_sys(0), g_sys(1), g_sys(2));
   if(g_sys_tmp.norm() > arm.length) {
-    //printf("Out of reach\n");
     Vector3f norm_goal(g_sys(0), g_sys(1), g_sys(2));
     norm_goal = norm_goal.normalized() * arm.length * 0.99;
     goal_t << norm_goal(0), norm_goal(1), norm_goal(2), 1;
@@ -342,7 +402,7 @@ Vector4f nextGoal(float t) {
   float r = 3 * (1 - cos(t));
   float x = r * sin(t);
   float y = r * cos(t) + 6;
-  Vector4f toRet(x, y, 0, 1);
+  Vector4f toRet(x, y, sin(t), 1);
   return toRet;
 }
 
@@ -392,13 +452,8 @@ void initGL(int argc, char *argv[]) {
   glEnable(GL_LIGHTING);
   glEnable(GL_DEPTH_TEST);
 
-  GLfloat pl[] = {1.0, 1.0, 1.0, -1.0};
-  GLfloat ka[] = {1.0, 1.0, 1.0};
-  GLfloat kd[] = {1.0, 1.0, 1.0};
-
+  GLfloat pl[] = {0.0, 20.0, 0.0, 1.0};
   glLightfv(GL_LIGHT0, GL_POSITION, pl);
-  glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, ka);
-  glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, kd);
   
   glutDisplayFunc(myDisplay);       // function to run when its time to draw something
   glutReshapeFunc(myReshape);       // function to run when the window gets resized
@@ -417,19 +472,14 @@ void idleLoop() {
     finished = update(path_goal);
   }
   myDisplay();
-  idle_t += 0.001;
+  idle_t += 0.0008;
 }
 
 //****************************************************
 // the usual stuff, nothing exciting here
 //****************************************************
 int main(int argc, char *argv[]) {
-  float step = 0.05;
-  Vector4f goal(10, 10, 0, 1);
-  
   initGL(argc, argv);
-
-  printf("initGL finished\n");
   
   // Lower -> higher index corresponds to base -> end of the arm
   Joint j1(2.0);
@@ -438,8 +488,6 @@ int main(int argc, char *argv[]) {
   Joint j4(0.8);
   Joint j5(0.5);
 
-  printf("Joints initialized\n");
-  
   vector<Joint, Eigen::aligned_allocator<Joint>> joints;
   joints.push_back(j1);
   joints.push_back(j2);
@@ -447,16 +495,10 @@ int main(int argc, char *argv[]) {
   joints.push_back(j4);
   joints.push_back(j5);
 
-  printf("Joints added to vector\n");
-  
   // Add joints to the system
   arm.updateJoints(joints);
-  
-  printf("Arm initialized\n");
-  
-  printf("Finished loops\n");
 
-  glutMainLoop();             // infinite loop that will keep drawing and resizing
+  glutMainLoop();
 
   return 0;
 }
