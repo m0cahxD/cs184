@@ -138,7 +138,7 @@ public:
 				  0,             0,             0,             1;
     */
     //cout << "theta_x: " << theta_x << " --- theta_y: " << theta_y << " --- theta_z: " << theta_z << endl;
-    rotation = rot_z * rot_y * rot_x;
+    rotation = rot_y * rot_z * rot_x;
   }
   
   void updateRotation(float dtheta_x, float dtheta_y, float dtheta_z) {
@@ -185,11 +185,18 @@ public:
     endpoint = transf * origin;
   }
 
-  Vector4f findEndpoint(int index, float theta) {
+  Vector4f findEndpoint(int index, int axis, float theta) {
     Joint oldJoint = joints[index];
     Joint newJoint = Joint(oldJoint.length);
     newJoint.setRotation(oldJoint.theta_x, oldJoint.theta_y, oldJoint.theta_z);
-    newJoint.updateRotation(theta, theta, theta);
+    // 0: X axis rotation, 1: Y axis rotation, 2: Z axis rotation
+    if(axis == 0) {
+      newJoint.updateRotation(theta, 0, 0);
+    } else if(axis == 1) {
+      newJoint.updateRotation(0, theta, 0);
+    } else if(axis == 2) {
+      newJoint.updateRotation(0, 0, theta);
+    }
 
     Matrix4f transf;
     transf << 1, 0, 0, 0,
@@ -220,19 +227,27 @@ public:
   
   MatrixXf getJ() {
     MatrixXf J(3, 12);
-    float del[4] = {0.18, 0.18, 0.18, 0.18};
+    float del = 0.01;
     for(size_t i = 0; i < joints.size(); i++) {
-      Vector4f end = findEndpoint(i, del[i]);
+      Vector4f end = findEndpoint(i, 0, del);
       Vector4f dp = end - endpoint;
-      dp = dp / del[i];
+      dp = dp / del;
       J(0, i * 3) = dp[0];
-      J(0, i * 3 + 1) = dp[0];
-      J(0, i * 3 + 2) = dp[0];
       J(1, i * 3) = dp[1];
-      J(1, i * 3 + 1) = dp[1];
-      J(1, i * 3 + 2) = dp[1];
       J(2, i * 3) = dp[2];
+      end = findEndpoint(i, 1, del);
+      
+	  dp = end - endpoint;
+      dp = dp / del;
+      J(0, i * 3 + 1) = dp[0];
+      J(1, i * 3 + 1) = dp[1];
       J(2, i * 3 + 1) = dp[2];
+      
+	  end = findEndpoint(i, 2, del);
+      dp = end - endpoint;
+      dp = dp / del;
+      J(0, i * 3 + 2) = dp[0];
+      J(1, i * 3 + 2) = dp[1];
       J(2, i * 3 + 2) = dp[2];
 	  //cout << "joint: " << i << " --- dp: " << dp << endl;
     }
@@ -318,12 +333,12 @@ void myDisplay() {
   arm.updateEndpoint();
   for(int i = 0; i < arm.joints.size(); i++) {
     Joint j = arm.joints[i];
-    glRotatef(j.theta_z * 180 / PI, 0.0, 0.0, 1.0);
     glRotatef(j.theta_y * 180 / PI, 0.0, 1.0, 0.0);
+    glRotatef(j.theta_z * 180 / PI, 0.0, 0.0, 1.0);
     glRotatef(j.theta_x * 180 / PI, 1.0, 0.0, 0.0);
     glPushMatrix();
     glRotatef(90, 0.0, 1.0, 0.0);
-    glutSolidCone(0.2, j.length, 50, 50);
+    glutSolidCone(j.length*0.4, j.length, 50, 50);
     glPopMatrix();
     glTranslatef(j.length, 0.0, 0.0);
     
@@ -356,12 +371,14 @@ bool update(Vector4f& goal) {
     //MatrixXf J_inverse = J.transpose() * (J * J.transpose()).inverse();
     //MatrixXf J_inverse = (J.transpose() * J).inverse() * J;
     VectorXf dtheta = J.jacobiSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(dp);
+    //VectorXf dtheta = J_inverse * dp;
     float dtheta1[3] = {dtheta[0], dtheta[1], dtheta[2]};
     float dtheta2[3] = {dtheta[3], dtheta[4], dtheta[5]};
     float dtheta3[3] = {dtheta[6], dtheta[7], dtheta[8]};
     float dtheta4[3] = {dtheta[9], dtheta[10], dtheta[11]};
     arm.updateAngles(dtheta1, dtheta2, dtheta3, dtheta4);
     arm.updateEndpoint();
+    //cout << dtheta << endl;
     //cout << "new endpoint: " << arm.endpoint << endl;
     return false;
   }
@@ -467,10 +484,10 @@ int main(int argc, char *argv[]) {
   printf("initGL finished\n");
   
   // Lower -> higher index corresponds to base -> end of the arm
-  Joint j1(1.0);
-  Joint j2(1.0);
+  Joint j1(2.5);
+  Joint j2(2.0);
   Joint j3(1.0);
-  Joint j4(1.0);
+  Joint j4(0.8);
 
   printf("Joints initialized\n");
   
@@ -495,13 +512,6 @@ int main(int argc, char *argv[]) {
       finished = update(goal);
     }
   }*/
-  
-  bool finished = false;
-  while(!finished) {
-    finished = update(goal);
-  }
-  cout << arm.endpoint << endl;
-  
   /*
   Joint j5(2.0);
   Joint j6(2.0);
