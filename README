@@ -1,0 +1,17 @@
+Kevin Hui    cs184-em
+Charles Bin	 cs184-bv
+
+Our projects runs on windows on visual studio
+
+Submitted by Charles Bin
+
+Extra Credit:
+
+Demonstrated a solution with different joints and different joint lengths (original was 4 joints, EC has 5 joints)
+
+Demonstrated a solution with a pin wheel joint (Joint 0, the joint connected to the base. We choose to do this one the base
+joint because on our first try, we tried with an arbitrary joint in the middle of the arm and it was very hard to see, 
+regardless of loop, the point joint working. Using the base joint, you'll notice while joint 1 rotates along x and y axis
+a lot, the base joint only ever rotates on the z axis)
+
+Solved multiple constraints? (I'm not sure if this means we sastified mutliple EC requirements at once but that's what we did)
